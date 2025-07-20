@@ -4,6 +4,7 @@ import datetime
 import pandas as pd
 from pathlib import Path
 import json
+import requests
 import streamlit.components.v1 as components
 
 # Configure page
