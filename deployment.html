@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flora & Fauna Data Collection - Quick Deploy</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .deployment-option {
+            background: #f8f9fa;
+            border-left: 4px solid #007bff;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        .deployment-option h3 {
+            color: #007bff;
+            margin-top: 0;
+        }
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 5px;
+            transition: background 0.3s;
+        }
+        .btn:hover {
+            background: #0056b3;
+        }
+        .btn-success {
+            background: #28a745;
+        }
+        .btn-success:hover {
+            background: #1e7e34;
+        }
+        .code {
+            background: #f1f1f1;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            overflow-x: auto;
+        }
+        .feature-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .feature {
+            background: #e8f4f8;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌱 Flora & Fauna Data Collection App</h1>
+        <p style="text-align: center; font-size: 1.2em; color: #666;">
+            Multi-media data collection with automatic location tracking
+        </p>
+
+        <div class="feature-list">
+            <div class="feature">
+                <h4>📝 Text Data</h4>
+                <p>Single entry, multi-line, CSV upload</p>
+            </div>
+            <div class="feature">
+                <h4>🎵 Audio Data</h4>
+                <p>MP3, WAV, OGG, M4A support</p>
+            </div>
+            <div class="feature">
+                <h4>🎥 Video Data</h4>
+                <p>MP4, AVI, MOV, WMV formats</p>
+            </div>
+            <div class="feature">
+                <h4>🖼️ Image Data</h4>
+                <p>PNG, JPG, JPEG, GIF, BMP</p>
+            </div>
+            <div class="feature">
+                <h4>📍 Location Tracking</h4>
+                <p>GPS, IP-based, manual entry</p>
+            </div>
+            <div class="feature">
+                <h4>📊 Analytics</h4>
+                <p>Data visualization and export</p>
+            </div>
+        </div>
+
+        <h2>🚀 Quick Deployment Options</h2>
+
+        <div class="deployment-option">
+            <h3>1. Streamlit Community Cloud (Recommended)</h3>
+            <p><strong>Free, Easy, Fast</strong></p>
+            <ol>
+                <li>Push code to GitHub</li>
+                <li>Visit <a href="https://share.streamlit.io" target="_blank">share.streamlit.io</a></li>
+                <li>Connect GitHub and deploy</li>
+            </ol>
+            <a href="https://share.streamlit.io" class="btn btn-success" target="_blank">Deploy to Streamlit Cloud</a>
+        </div>
+
+        <div class="deployment-option">
+            <h3>2. Heroku</h3>
+            <p><strong>Scalable, Professional</strong></p>
+            <div class="code">
+                git add .<br>
+                git commit -m "Deploy to Heroku"<br>
+                heroku create your-app-name<br>
+                git push heroku main
+            </div>
+            <a href="https://heroku.com" class="btn" target="_blank">Deploy to Heroku</a>
+        </div>
+
+        <div class="deployment-option">
+            <h3>3. Railway</h3>
+            <p><strong>Modern, Simple</strong></p>
+            <ol>
+                <li>Connect GitHub repository</li>
+                <li>Automatic deployment</li>
+            </ol>
+            <a href="https://railway.app" class="btn" target="_blank">Deploy to Railway</a>
+        </div>
+
+        <div class="deployment-option">
+            <h3>4. Local Network</h3>
+            <p><strong>Development, Testing</strong></p>
+            <div class="code">
+                ./deploy.sh
+            </div>
+            <p>Choose option 2 for network access</p>
+        </div>
+
+        <h2>📋 Pre-Deployment Checklist</h2>
+        <ul>
+            <li>✅ Python 3.11+ installed</li>
+            <li>✅ All dependencies in requirements.txt</li>
+            <li>✅ Configuration files ready</li>
+            <li>✅ Data directories configured</li>
+            <li>✅ Location services enabled</li>
+            <li>✅ HTTPS for geolocation (cloud deployments)</li>
+        </ul>
+
+        <h2>🔧 Quick Start</h2>
+        <div class="code">
+            # 1. Install dependencies<br>
+            pip install -r requirements.txt<br><br>
+            
+            # 2. Run locally<br>
+            streamlit run app.py<br><br>
+            
+            # 3. Access app<br>
+            # http://localhost:8501
+        </div>
+
+        <h2>📱 Features</h2>
+        <ul>
+            <li><strong>🌍 Automatic Location Detection:</strong> GPS-based location capture</li>
+            <li><strong>📊 Data Analytics:</strong> Built-in visualization and statistics</li>
+            <li><strong>💾 Multiple Formats:</strong> Support for various file types</li>
+            <li><strong>📱 Mobile Friendly:</strong> Responsive design for all devices</li>
+            <li><strong>🔒 Privacy Focused:</strong> Local data storage, secure handling</li>
+            <li><strong>📤 Export Ready:</strong> CSV export with metadata</li>
+        </ul>
+
+        <p style="text-align: center; margin-top: 40px; color: #666;">
+            <strong>Ready to deploy?</strong> Choose your preferred platform above!
+        </p>
+    </div>
+</body>
+</html>
