@@ -571,6 +571,34 @@ elif data_type == "🖼️ Image Data":
 elif data_type == "📈 View Collected Data":
     st.header("📈 Collected Data Overview")
     
+    # Data Storage Information
+    st.info("""
+    **📂 Data Storage Information:**
+    - **Local Development**: Data stored in `data/` folder on your computer
+    - **Streamlit Cloud**: Data stored temporarily in cloud containers
+    - **Important**: Download your data regularly as cloud storage is temporary!
+    """)
+    
+    # Storage Status
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        data_dirs = ['data/text', 'data/audio', 'data/video', 'data/images']
+        existing_dirs = [d for d in data_dirs if os.path.exists(d)]
+        st.metric("📁 Data Directories", f"{len(existing_dirs)}/4")
+    
+    with col2:
+        total_files = 0
+        for dir_path in existing_dirs:
+            if os.path.exists(dir_path):
+                total_files += len([f for f in os.listdir(dir_path) if os.path.isfile(os.path.join(dir_path, f))])
+        st.metric("📄 Total Files", total_files)
+    
+    with col3:
+        metadata_exists = os.path.exists("data/metadata.json")
+        st.metric("🗃️ Metadata File", "✅ Exists" if metadata_exists else "❌ Missing")
+    
+    st.markdown("---")
+    
     # Load metadata
     metadata_file = "data/metadata.json"
     if os.path.exists(metadata_file):
@@ -689,13 +717,84 @@ elif data_type == "📈 View Collected Data":
                 # Download option
                 csv = filtered_df.to_csv(index=False)
                 st.download_button(
-                    label="📥 Download as CSV",
+                    label="📥 Download Filtered Data as CSV",
                     data=csv,
                     file_name=f"collected_data_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
                     mime="text/csv"
                 )
+                
+                # Download all metadata
+                col1, col2 = st.columns(2)
+                with col1:
+                    all_csv = df.to_csv(index=False)
+                    st.download_button(
+                        label="📥 Download ALL Data as CSV",
+                        data=all_csv,
+                        file_name=f"all_data_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                        mime="text/csv"
+                    )
+                
+                with col2:
+                    metadata_json = json.dumps(all_metadata, indent=2)
+                    st.download_button(
+                        label="📄 Download Metadata JSON",
+                        data=metadata_json,
+                        file_name=f"metadata_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+                        mime="application/json"
+                    )
             else:
                 st.info("No data found for the selected filter.")
+            
+            # File Storage Details
+            st.markdown("---")
+            st.subheader("📁 File Storage Details")
+            
+            storage_tab1, storage_tab2 = st.tabs(["📂 Directory Contents", "🔍 File Paths"])
+            
+            with storage_tab1:
+                data_dirs = {
+                    "📝 Text Files": "data/text",
+                    "🎵 Audio Files": "data/audio", 
+                    "🎥 Video Files": "data/video",
+                    "🖼️ Image Files": "data/images"
+                }
+                
+                cols = st.columns(2)
+                for i, (label, path) in enumerate(data_dirs.items()):
+                    with cols[i % 2]:
+                        st.write(f"**{label}**")
+                        if os.path.exists(path):
+                            files = [f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))]
+                            if files:
+                                for file in files[:5]:  # Show first 5 files
+                                    file_path = os.path.join(path, file)
+                                    file_size = os.path.getsize(file_path)
+                                    st.write(f"• `{file}` ({file_size} bytes)")
+                                if len(files) > 5:
+                                    st.write(f"... and {len(files) - 5} more files")
+                            else:
+                                st.write("📂 Empty directory")
+                        else:
+                            st.write("❌ Directory not found")
+            
+            with storage_tab2:
+                st.write("**Current Storage Paths:**")
+                st.code(f"""
+📂 Base Directory: data/
+├── 📝 text/          → {os.path.abspath('data/text') if os.path.exists('data/text') else 'Not created'}
+├── 🎵 audio/         → {os.path.abspath('data/audio') if os.path.exists('data/audio') else 'Not created'}
+├── 🎥 video/         → {os.path.abspath('data/video') if os.path.exists('data/video') else 'Not created'}
+├── 🖼️ images/        → {os.path.abspath('data/images') if os.path.exists('data/images') else 'Not created'}
+└── 🗃️ metadata.json → {os.path.abspath('data/metadata.json') if os.path.exists('data/metadata.json') else 'Not created'}
+                """)
+                
+                st.warning("""
+                **⚠️ Important Notes for Streamlit Cloud:**
+                - Files are stored temporarily in cloud containers
+                - Data will be lost when the app restarts or sleeps
+                - Always download important data using the buttons above
+                - For persistent storage, consider using cloud databases
+                """)
         else:
             st.info("No data has been collected yet.")
     else:
