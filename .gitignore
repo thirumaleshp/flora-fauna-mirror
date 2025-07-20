@@ -1,0 +1,25 @@
+# Data collection directories
+data/
+*.pyc
+__pycache__/
+.streamlit/
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Virtual environment
+venv/
+env/
+.env
+
+# Jupyter notebooks
+*.ipynb_checkpoints/
+
+# Temporary files
+*.tmp
+*.temp
