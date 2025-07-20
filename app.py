@@ -571,34 +571,6 @@ elif data_type == "🖼️ Image Data":
 elif data_type == "📈 View Collected Data":
     st.header("📈 Collected Data Overview")
     
-    # Data Storage Information
-    st.info("""
-    **📂 Data Storage Information:**
-    - **Local Development**: Data stored in `data/` folder on your computer
-    - **Streamlit Cloud**: Data stored temporarily in cloud containers
-    - **Important**: Download your data regularly as cloud storage is temporary!
-    """)
-    
-    # Storage Status
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        data_dirs = ['data/text', 'data/audio', 'data/video', 'data/images']
-        existing_dirs = [d for d in data_dirs if os.path.exists(d)]
-        st.metric("📁 Data Directories", f"{len(existing_dirs)}/4")
-    
-    with col2:
-        total_files = 0
-        for dir_path in existing_dirs:
-            if os.path.exists(dir_path):
-                total_files += len([f for f in os.listdir(dir_path) if os.path.isfile(os.path.join(dir_path, f))])
-        st.metric("📄 Total Files", total_files)
-    
-    with col3:
-        metadata_exists = os.path.exists("data/metadata.json")
-        st.metric("🗃️ Metadata File", "✅ Exists" if metadata_exists else "❌ Missing")
-    
-    st.markdown("---")
-    
     # Load metadata
     metadata_file = "data/metadata.json"
     if os.path.exists(metadata_file):
