@@ -203,89 +203,142 @@ def display_file_preview(row, idx):
 
 # Location Component
 def get_auto_location():
-    """Get location automatically using IP geolocation (mandatory for all uploads)"""
+    """Get location automatically using IP geolocation with accurate coordinates"""
     import time
     current_time = time.time()
     
-    # Check if we have recent location data (less than 5 minutes old)
+    # Check if we have recent location data (less than 2 minutes old for better accuracy)
     if ('auto_location' in st.session_state and 
         'timestamp' in st.session_state.get('auto_location', {}) and
-        current_time - st.session_state['auto_location']['timestamp'] < 300):  # 5 minutes
+        current_time - st.session_state['auto_location']['timestamp'] < 120):  # 2 minutes
         location_data = st.session_state['auto_location']
     else:
-        # Get fresh location data
-        with st.spinner("🌐 Detecting your current location..."):
+        # Get fresh location data using multiple accurate IP geolocation services
+        with st.spinner("🌐 Detecting your current location with precise coordinates..."):
             location_data = None
             try:
                 import requests
                 
-                # Try multiple IP geolocation services for better accuracy
+                # More accurate IP geolocation services with better Indian coverage
                 services = [
-                    'http://ip-api.com/json/',
-                    'https://ipapi.co/json/',
-                    'https://ipinfo.io/json'
+                    {
+                        'url': 'http://ip-api.com/json/?fields=status,message,country,countryCode,region,regionName,city,zip,lat,lon,timezone,isp,org,as,query',
+                        'name': 'ip-api.com',
+                        'parser': 'ip_api'
+                    },
+                    {
+                        'url': 'https://ipapi.co/json/',
+                        'name': 'ipapi.co',
+                        'parser': 'ipapi_co'
+                    },
+                    {
+                        'url': 'https://ipinfo.io/json',
+                        'name': 'ipinfo.io',
+                        'parser': 'ipinfo'
+                    },
+                    {
+                        'url': 'https://api.ipgeolocation.io/ipgeo?apiKey=free',
+                        'name': 'ipgeolocation.io',
+                        'parser': 'ipgeolocation'
+                    }
                 ]
                 
-                for service_url in services:
+                for service in services:
                     try:
-                        response = requests.get(service_url, timeout=3)
+                        response = requests.get(service['url'], timeout=5)
                         if response.status_code == 200:
                             ip_data = response.json()
                             
-                            if service_url.startswith('http://ip-api.com'):
-                                if ip_data.get('status') == 'success':
-                                    location_data = {
-                                        "city": ip_data.get("city", "Unknown"),
-                                        "region": ip_data.get("regionName", "Unknown"), 
-                                        "country": ip_data.get("country", "Unknown"),
-                                        "latitude": ip_data.get("lat"),
-                                        "longitude": ip_data.get("lon"),
-                                        "detection_method": "ip_geolocation_auto",
-                                        "timestamp": current_time,
-                                        "service": "ip-api.com"
-                                    }
-                                    break
-                            elif service_url.startswith('https://ipapi.co'):
-                                if ip_data.get('city'):
-                                    location_data = {
-                                        "city": ip_data.get("city", "Unknown"),
-                                        "region": ip_data.get("region", "Unknown"), 
-                                        "country": ip_data.get("country_name", "Unknown"),
-                                        "latitude": ip_data.get("latitude"),
-                                        "longitude": ip_data.get("longitude"),
-                                        "detection_method": "ip_geolocation_auto",
-                                        "timestamp": current_time,
-                                        "service": "ipapi.co"
-                                    }
-                                    break
-                            elif service_url.startswith('https://ipinfo.io'):
-                                if ip_data.get('city'):
-                                    location_data = {
-                                        "city": ip_data.get("city", "Unknown"),
-                                        "region": ip_data.get("region", "Unknown"), 
-                                        "country": ip_data.get("country", "Unknown"),
-                                        "latitude": float(ip_data.get("loc", "0,0").split(',')[0]) if ip_data.get("loc") else None,
-                                        "longitude": float(ip_data.get("loc", "0,0").split(',')[1]) if ip_data.get("loc") else None,
-                                        "detection_method": "ip_geolocation_auto",
-                                        "timestamp": current_time,
-                                        "service": "ipinfo.io"
-                                    }
-                                    break
-                    except Exception:
+                            # Parse based on service type
+                            if service['parser'] == 'ip_api' and ip_data.get('status') == 'success':
+                                location_data = {
+                                    "city": ip_data.get("city", "Unknown"),
+                                    "region": ip_data.get("regionName", "Unknown"), 
+                                    "country": ip_data.get("country", "Unknown"),
+                                    "country_code": ip_data.get("countryCode", ""),
+                                    "latitude": float(ip_data.get("lat", 0)),
+                                    "longitude": float(ip_data.get("lon", 0)),
+                                    "timezone": ip_data.get("timezone", ""),
+                                    "isp": ip_data.get("isp", ""),
+                                    "ip_address": ip_data.get("query", ""),
+                                    "detection_method": "ip_geolocation_precise",
+                                    "timestamp": current_time,
+                                    "service": service['name']
+                                }
+                                break
+                                
+                            elif service['parser'] == 'ipapi_co' and ip_data.get('city'):
+                                location_data = {
+                                    "city": ip_data.get("city", "Unknown"),
+                                    "region": ip_data.get("region", "Unknown"), 
+                                    "country": ip_data.get("country_name", "Unknown"),
+                                    "country_code": ip_data.get("country_code", ""),
+                                    "latitude": float(ip_data.get("latitude", 0)) if ip_data.get("latitude") else 0,
+                                    "longitude": float(ip_data.get("longitude", 0)) if ip_data.get("longitude") else 0,
+                                    "timezone": ip_data.get("timezone", ""),
+                                    "isp": ip_data.get("org", ""),
+                                    "ip_address": ip_data.get("ip", ""),
+                                    "detection_method": "ip_geolocation_precise",
+                                    "timestamp": current_time,
+                                    "service": service['name']
+                                }
+                                break
+                                
+                            elif service['parser'] == 'ipinfo' and ip_data.get('city'):
+                                loc = ip_data.get("loc", "0,0").split(',')
+                                location_data = {
+                                    "city": ip_data.get("city", "Unknown"),
+                                    "region": ip_data.get("region", "Unknown"), 
+                                    "country": ip_data.get("country", "Unknown"),
+                                    "country_code": ip_data.get("country", ""),
+                                    "latitude": float(loc[0]) if len(loc) > 0 and loc[0] else 0,
+                                    "longitude": float(loc[1]) if len(loc) > 1 and loc[1] else 0,
+                                    "timezone": ip_data.get("timezone", ""),
+                                    "isp": ip_data.get("org", ""),
+                                    "ip_address": ip_data.get("ip", ""),
+                                    "detection_method": "ip_geolocation_precise",
+                                    "timestamp": current_time,
+                                    "service": service['name']
+                                }
+                                break
+                                
+                            elif service['parser'] == 'ipgeolocation' and ip_data.get('city'):
+                                location_data = {
+                                    "city": ip_data.get("city", "Unknown"),
+                                    "region": ip_data.get("state_prov", "Unknown"), 
+                                    "country": ip_data.get("country_name", "Unknown"),
+                                    "country_code": ip_data.get("country_code2", ""),
+                                    "latitude": float(ip_data.get("latitude", 0)) if ip_data.get("latitude") else 0,
+                                    "longitude": float(ip_data.get("longitude", 0)) if ip_data.get("longitude") else 0,
+                                    "timezone": ip_data.get("time_zone", {}).get("name", "") if ip_data.get("time_zone") else "",
+                                    "isp": ip_data.get("isp", ""),
+                                    "ip_address": ip_data.get("ip", ""),
+                                    "detection_method": "ip_geolocation_precise",
+                                    "timestamp": current_time,
+                                    "service": service['name']
+                                }
+                                break
+                                
+                    except Exception as e:
+                        st.write(f"Debug: {service['name']} failed: {str(e)}")
                         continue
                 
-                if location_data:
+                if location_data and location_data.get('latitude') != 0 and location_data.get('longitude') != 0:
                     st.session_state['auto_location'] = location_data
-                    st.success(f"✅ Location detected: {location_data['city']}, {location_data['country']} (via {location_data['service']})")
+                    st.success(f"✅ Location detected: {location_data['city']}, {location_data['country']} ({location_data['latitude']:.4f}, {location_data['longitude']:.4f}) via {location_data['service']}")
                 else:
-                    st.error("❌ All location services failed")
-                    # Use fallback location
+                    st.error("❌ Could not get accurate coordinates from IP location services")
+                    # Create basic location without coordinates
                     location_data = {
                         "city": "Unknown Location",
                         "region": "Unknown", 
                         "country": "Unknown",
-                        "latitude": None,
-                        "longitude": None,
+                        "country_code": "",
+                        "latitude": 0.0,
+                        "longitude": 0.0,
+                        "timezone": "",
+                        "isp": "",
+                        "ip_address": "",
                         "detection_method": "fallback",
                         "timestamp": current_time,
                         "service": "fallback"
@@ -294,40 +347,60 @@ def get_auto_location():
                     
             except Exception as e:
                 st.error(f"❌ Location detection error: {str(e)}")
-                # Use fallback location
                 location_data = {
                     "city": "Unknown Location",
                     "region": "Unknown", 
                     "country": "Unknown",
-                    "latitude": None,
-                    "longitude": None,
+                    "country_code": "",
+                    "latitude": 0.0,
+                    "longitude": 0.0,
+                    "timezone": "",
+                    "isp": "",
+                    "ip_address": "",
                     "detection_method": "error_fallback",
                     "timestamp": current_time,
                     "service": "fallback"
                 }
                 st.session_state['auto_location'] = location_data
     
-    # Display current location
+    # Display current location with enhanced details
     if st.session_state.get('auto_location'):
         location_data = st.session_state['auto_location']
         
-        # Show coordinates only if they exist
-        if location_data.get('latitude') and location_data.get('longitude'):
+        # Enhanced location display with coordinates
+        if location_data.get('latitude') and location_data.get('longitude') and location_data['latitude'] != 0:
             coords_text = f" ({location_data['latitude']:.4f}, {location_data['longitude']:.4f})"
+            accuracy_indicator = "🎯"  # Precise coordinates available
         else:
-            coords_text = ""
+            coords_text = " (coordinates unavailable)"
+            accuracy_indicator = "📍"  # Basic location only
             
-        st.info(f"📍 **Current Location**: {location_data['city']}, {location_data['country']}{coords_text}")
+        st.info(f"{accuracy_indicator} **Current Location**: {location_data['city']}, {location_data['country']}{coords_text}")
+        
+        # Show detailed location information
+        with st.expander("📊 Location Details"):
+            col1, col2 = st.columns(2)
+            with col1:
+                st.write(f"**🏙️ City:** {location_data.get('city', 'Unknown')}")
+                st.write(f"**🌍 Country:** {location_data.get('country', 'Unknown')} ({location_data.get('country_code', 'N/A')})")
+                st.write(f"**📍 Coordinates:** {location_data.get('latitude', 0):.6f}, {location_data.get('longitude', 0):.6f}")
+            with col2:
+                st.write(f"**🌐 ISP:** {location_data.get('isp', 'Unknown')}")
+                st.write(f"**⏰ Timezone:** {location_data.get('timezone', 'Unknown')}")
+                st.write(f"**🔍 Service:** {location_data.get('service', 'Unknown')}")
+                if location_data.get('ip_address'):
+                    st.write(f"**🌐 IP:** {location_data['ip_address']}")
         
         # Show service used and age of data
         if 'timestamp' in location_data:
             import time
             age_minutes = (time.time() - location_data['timestamp']) / 60
-            st.caption(f"🕒 Detected {age_minutes:.0f} minutes ago via {location_data.get('service', 'unknown service')}")
+            accuracy_text = "High accuracy with precise coordinates" if location_data.get('latitude', 0) != 0 else "Basic location only"
+            st.caption(f"🕒 Detected {age_minutes:.0f} minutes ago via {location_data.get('service', 'unknown service')} | {accuracy_text}")
         
         col1, col2 = st.columns(2)
         with col1:
-            if st.button("🔄 Refresh Location", help="Force detect current location"):
+            if st.button("🔄 Refresh Location", help="Get fresh location with precise coordinates"):
                 # Clear cached location to force refresh
                 if 'auto_location' in st.session_state:
                     del st.session_state['auto_location']
@@ -335,19 +408,97 @@ def get_auto_location():
         with col2:
             override = st.checkbox("✏️ Edit location")
         
+        # Show debug info if location seems wrong
+        if location_data.get('city') == 'The Dalles' or location_data.get('country') == 'United States':
+            st.warning("⚠️ Location may be incorrect due to proxy/CDN. Use 'Edit location' to set manually.")
+            with st.expander("🔍 Debug Info"):
+                st.json({
+                    "detected_city": location_data.get('city'),
+                    "detected_country": location_data.get('country'),
+                    "service_used": location_data.get('service'),
+                    "detection_method": location_data.get('detection_method'),
+                    "note": "This may be Streamlit Cloud's server location, not your actual location"
+                })
+        
         if override:
-            new_city = st.text_input("City:", value=location_data['city'])
-            new_country = st.text_input("Country:", value=location_data['country'])
-            new_coords = st.text_input("Coordinates:", value=f"{location_data['latitude']}, {location_data['longitude']}")
-            if st.button("Update") and new_city and new_country and new_coords:
+            st.markdown("**🇮🇳 Common Indian Cities (click to auto-fill):**")
+            
+            indian_cities = [
+                ("Mumbai", "India", "19.0760, 72.8777"),
+                ("Delhi", "India", "28.7041, 77.1025"),
+                ("Bangalore", "India", "12.9716, 77.5946"),
+                ("Hyderabad", "India", "17.3850, 78.4867"),
+                ("Chennai", "India", "13.0827, 80.2707"),
+                ("Kolkata", "India", "22.5726, 88.3639"),
+                ("Pune", "India", "18.5204, 73.8567"),
+                ("Ahmedabad", "India", "23.0225, 72.5714"),
+                ("Jaipur", "India", "26.9124, 75.7873"),
+                ("Surat", "India", "21.1702, 72.8311"),
+                ("Lucknow", "India", "26.8467, 80.9462"),
+                ("Kanpur", "India", "26.4499, 80.3319"),
+                ("Nagpur", "India", "21.1458, 79.0882"),
+                ("Indore", "India", "22.7196, 75.8577"),
+                ("Thane", "India", "19.2183, 72.9781"),
+                ("Bhopal", "India", "23.2599, 77.4126"),
+                ("Visakhapatnam", "India", "17.6868, 83.2185"),
+                ("Pimpri-Chinchwad", "India", "18.6298, 73.7997"),
+                ("Patna", "India", "25.5941, 85.1376"),
+                ("Vadodara", "India", "22.3072, 73.1812")
+            ]
+            
+            # Create columns for city buttons
+            cols = st.columns(4)
+            for i, (city, country, coords) in enumerate(indian_cities):
+                with cols[i % 4]:
+                    if st.button(f"{city}", key=f"city_{i}", help=f"Set location to {city}, {country}"):
+                        lat, lon = map(float, coords.split(', '))
+                        st.session_state['auto_location'] = {
+                            "city": city,
+                            "region": "Unknown",
+                            "country": country,
+                            "latitude": lat,
+                            "longitude": lon,
+                            "detection_method": "manual_selection",
+                            "timestamp": current_time if 'current_time' in locals() else time.time(),
+                            "service": "manual"
+                        }
+                        st.success(f"✅ Location set to {city}, {country}")
+                        st.rerun()
+            
+            st.markdown("**Or enter custom location:**")
+            new_city = st.text_input("City:", value=location_data.get('city', ''))
+            new_country = st.text_input("Country:", value=location_data.get('country', ''))
+            
+            # Auto-suggest coordinates for common countries
+            coord_help = "Format: latitude, longitude (e.g., 28.7041, 77.1025 for Delhi)"
+            if new_country.lower() == 'india':
+                coord_help += " | For India, latitude ≈ 8-37, longitude ≈ 68-97"
+            
+            current_coords = ""
+            if location_data.get('latitude') and location_data.get('longitude'):
+                current_coords = f"{location_data['latitude']}, {location_data['longitude']}"
+            
+            new_coords = st.text_input("Coordinates:", value=current_coords, help=coord_help)
+            
+            if st.button("💾 Update Location") and new_city and new_country:
                 try:
-                    lat, lon = map(float, new_coords.split(','))
-                    st.session_state['auto_location'].update({
-                        "city": new_city, "country": new_country, 
-                        "latitude": lat, "longitude": lon,
-                        "detection_method": "manual_override"
-                    })
-                    st.success("✅ Location updated!")
+                    import time
+                    if new_coords and ',' in new_coords:
+                        lat, lon = map(float, new_coords.split(','))
+                    else:
+                        lat, lon = None, None
+                    
+                    st.session_state['auto_location'] = {
+                        "city": new_city.strip(),
+                        "region": "Custom",
+                        "country": new_country.strip(),
+                        "latitude": lat,
+                        "longitude": lon,
+                        "detection_method": "manual_override",
+                        "timestamp": time.time(),
+                        "service": "manual"
+                    }
+                    st.success(f"✅ Location updated to {new_city}, {new_country}")
                     st.rerun()
                 except ValueError:
                     st.error("❌ Invalid coordinates format. Use: latitude, longitude")
@@ -355,6 +506,7 @@ def get_auto_location():
         return location_data
     else:
         st.error("❌ Location detection failed. Location is required for uploads.")
+        return None
         return None
 
 def get_location_component():
