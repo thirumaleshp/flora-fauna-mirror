@@ -1,4 +1,9 @@
 import streamlit as st
+import os
+import datetime
+import pandas as pd
+import time
+import requests
 
 # Configure page - MUST be first Streamlit command
 st.set_page_config(
@@ -8,12 +13,6 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Standard imports
-import os
-import datetime
-import pandas as pd
-import json
-import streamlit.components.v1 as components
 
 # Cloud database imports (after page config)
 try:
@@ -65,24 +64,24 @@ def display_file_preview(row, idx):
                 try:
                     st.image(row['file_url'], caption=filename, use_column_width=True)
                     st.markdown(f"🔗 [Open in new tab]({row['file_url']})")
-                except Exception as e:
-                    st.error(f"❌ Could not display image: {e}")
+                except Exception:
+                    st.error("❌ Could not display image")
                     st.markdown(f"🔗 [View file directly]({row['file_url']})")
             
             elif data_type == 'audio':
                 try:
                     st.audio(row['file_url'])
                     st.markdown(f"🔗 [Download audio]({row['file_url']})")
-                except Exception as e:
-                    st.error(f"❌ Could not play audio: {e}")
+                except Exception:
+                    st.error("❌ Could not play audio")
                     st.markdown(f"🔗 [Download file directly]({row['file_url']})")
             
             elif data_type == 'video':
                 try:
                     st.video(row['file_url'])
                     st.markdown(f"🔗 [Download video]({row['file_url']})")
-                except Exception as e:
-                    st.error(f"❌ Could not play video: {e}")
+                except Exception:
+                    st.error("❌ Could not play video")
                     st.markdown(f"🔗 [Download file directly]({row['file_url']})")
             
             elif data_type == 'text':
@@ -101,17 +100,16 @@ def display_file_preview(row, idx):
                         
                         # Try to fetch and display cloud text file content
                         try:
-                            import requests
                             response = requests.get(row['file_url'])
                             if response.status_code == 200:
                                 cloud_content = response.text
                                 if cloud_content.strip() and cloud_content != row.get('content', ''):
                                     st.text_area("☁️ Cloud File Content:", cloud_content, height=150, key=f"cloud_text_{idx}")
-                        except Exception as e:
+                        except Exception:
                             st.info("💡 Click the link above to view the cloud-stored text file")
                     
-                except Exception as e:
-                    st.error(f"❌ Could not display text: {e}")
+                except Exception:
+                    st.error("❌ Could not display text")
             
             else:
                 st.markdown(f"🔗 [View/Download file]({row['file_url']})")
@@ -204,7 +202,43 @@ def display_file_preview(row, idx):
 # Location Component
 def get_auto_location():
     """Get location automatically using IP geolocation (mandatory for all uploads)"""
-    import time
+    
+    # Add manual location override at the top
+    st.markdown("### 📍 Location Setting")
+    
+    # Check if user wants to set location manually
+    manual_override = st.checkbox("🔧 Set location manually (recommended for accuracy)")
+    
+    if manual_override:
+        col1, col2 = st.columns(2)
+        with col1:
+            manual_city = st.text_input("🏙️ City:", value="Mumbai", placeholder="Enter your city")
+            manual_country = st.text_input("🌍 Country:", value="India", placeholder="Enter your country")
+        with col2:
+            manual_lat = st.number_input("📍 Latitude:", value=19.076090, format="%.6f")
+            manual_lon = st.number_input("📍 Longitude:", value=72.877426, format="%.6f")
+        
+        if st.button("💾 Set Location") and manual_city and manual_country:
+            location_data = {
+                "city": manual_city.strip(),
+                "region": "Manual Entry",
+                "country": manual_country.strip(),
+                "latitude": float(manual_lat),
+                "longitude": float(manual_lon),
+                "detection_method": "manual_override",
+                "timestamp": time.time(),
+                "service": "manual"
+            }
+            st.session_state['auto_location'] = location_data
+            st.success(f"✅ Location set to {manual_city}, {manual_country}")
+            st.rerun()
+    
+    # Return early if manual override is selected but location not yet set
+    if manual_override and ('auto_location' not in st.session_state or 
+                           st.session_state['auto_location'].get('detection_method') != 'manual_override'):
+        st.warning("⚠️ Please set your location manually above")
+        return None
+    
     current_time = time.time()
     
     # Check if we have recent location data (less than 5 minutes old)
@@ -212,12 +246,11 @@ def get_auto_location():
         'timestamp' in st.session_state.get('auto_location', {}) and
         current_time - st.session_state['auto_location']['timestamp'] < 300):  # 5 minutes
         location_data = st.session_state['auto_location']
-    else:
+    elif not manual_override:  # Only try auto-detection if not manual override
         # Get fresh location data
         with st.spinner("🌐 Detecting your current location..."):
             location_data = None
             try:
-                import requests
                 
                 # Try multiple IP geolocation services for better accuracy
                 services = [
@@ -321,7 +354,6 @@ def get_auto_location():
         
         # Show service used and age of data
         if 'timestamp' in location_data:
-            import time
             age_minutes = (time.time() - location_data['timestamp']) / 60
             st.caption(f"🕒 Detected {age_minutes:.0f} minutes ago via {location_data.get('service', 'unknown service')}")
         
@@ -532,7 +564,6 @@ def get_location_component():
         if st.button("Use IP Location", help="Get approximate location from IP"):
             try:
                 # Simple IP geolocation
-                import requests
                 response = requests.get('http://ip-api.com/json/', timeout=5)
                 if response.status_code == 200:
                     ip_data = response.json()
@@ -968,7 +999,7 @@ elif data_type == "🖼️ Image Data":
                     
                     if CLOUD_DB_AVAILABLE:
                         st.success(f"🖼️ Successfully saved {len(saved_files)} images!")
-                        st.info(f"💾 Stored in: Supabase")
+                        st.info("💾 Stored in: Supabase")
                         st.info(f"📍 Location: {location_data.get('city', 'Unknown')}, {location_data.get('country', 'Unknown')}")
                         for filename, data_id in saved_files:
                             st.write(f"• {filename} (ID: {data_id})")
@@ -996,7 +1027,7 @@ elif data_type == "📈 View Collected Data":
         col1, col2, col3 = st.columns([2, 1, 1])
         
         with col1:
-            st.success(f"🌐 **Current Database**: Supabase")
+            st.success("🌐 **Current Database**: Supabase")
         
         with col2:
             st.metric("📊 Provider", "SUPABASE")
@@ -1071,7 +1102,7 @@ elif data_type == "📈 View Collected Data":
                                     try:
                                         timestamp = pd.to_datetime(row['timestamp'])
                                         st.write(f"📅 {timestamp.strftime('%Y-%m-%d %H:%M')}")
-                                    except:
+                                    except Exception:
                                         st.write(f"📅 {row['timestamp']}")
                                 if pd.notna(row.get('location_name')):
                                     st.write(f"📍 {row['location_name']}")
@@ -1085,12 +1116,12 @@ elif data_type == "📈 View Collected Data":
                                             st.write(f"📦 Size: {size_kb:.1f} KB")
                                         else:
                                             st.write(f"📦 Size: {size_mb:.1f} MB")
-                                    except:
+                                    except Exception:
                                         st.write(f"📦 Size: {metadata['file_size']}")
                             
                             with col3:
                                 # Preview/View button
-                                if st.button(f"👁️ View", key=f"view_{idx}"):
+                                if st.button("👁️ View", key=f"view_{idx}"):
                                     st.session_state[f"show_preview_{idx}"] = True
                                 
                                 # Storage info
@@ -1126,7 +1157,7 @@ elif data_type == "📈 View Collected Data":
                     
                     with col3:
                         # Provider-specific info
-                        st.write(f"**Supabase**")
+                        st.write("**Supabase**")
                         st.write("Cloud Storage: ✅")
                         st.write("Real-time sync: ✅")
                 else:
@@ -1142,7 +1173,7 @@ elif data_type == "📈 View Collected Data":
 # Footer
 st.markdown("---")
 if CLOUD_DB_AVAILABLE:
-    st.markdown(f"""
+    st.markdown("""
     <div style="text-align: center; color: #666;">
         <p>🌿 Flora and Fauna Data Collection | Built with Streamlit</p>
         <p>💾 Database: Supabase (Cloud) | 🌐 Real-time sync enabled</p>
@@ -1152,6 +1183,6 @@ else:
     st.markdown("""
     <div style="text-align: center; color: #666;">
         <p>🌿 Flora and Fauna Data Collection | Built with Streamlit</p>
-        <p>⚠️ Cloud database not available</p>
+        <p>💾 Database: Supabase (Cloud) | 🌐 Real-time sync disabled</p>
     </div>
     """, unsafe_allow_html=True)
