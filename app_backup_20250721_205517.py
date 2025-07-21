@@ -369,116 +369,69 @@ def get_auto_location():
                     st.error("❌ IP location detection failed.")
                     return None
     
-    elif location_method == "📍 Enter coordinates manually":
+    elif location_method == "�📍 Enter coordinates manually":
         st.markdown("**📍 Manual Coordinate Entry**")
-        st.info("🎯 Enter your exact GPS coordinates for precise location data.")
-        
-        # Create two columns for latitude and longitude input
         col1, col2 = st.columns(2)
         
         with col1:
-            st.markdown("**🌐 Latitude**")
             manual_lat = st.number_input(
-                "Latitude (°N/S):", 
-                min_value=-90.0,
-                max_value=90.0,
-                value=0.0, 
+                "� Latitude:", 
+                value=19.076090, 
                 format="%.6f",
-                help="Enter latitude (-90 to 90). Positive for North, negative for South.",
-                key="manual_lat_input"
+                help="Enter latitude (-90 to 90)"
             )
-            st.caption("Range: -90.0 to +90.0")
-            st.caption("Example: 40.712776 (New York)")
         
         with col2:
-            st.markdown("**🌍 Longitude**")
             manual_lon = st.number_input(
-                "Longitude (°E/W):", 
-                min_value=-180.0,
-                max_value=180.0,
-                value=0.0, 
+                "🌍 Longitude:", 
+                value=72.877426, 
                 format="%.6f",
-                help="Enter longitude (-180 to 180). Positive for East, negative for West.",
-                key="manual_lon_input"
+                help="Enter longitude (-180 to 180)"
             )
-            st.caption("Range: -180.0 to +180.0")
-            st.caption("Example: -74.006000 (New York)")
         
-        # Coordinate validation and submission
-        st.markdown("---")
-        col_submit, col_help = st.columns([1, 2])
-        
-        with col_submit:
-            coords_valid = (-90 <= manual_lat <= 90 and -180 <= manual_lon <= 180 and 
-                          (manual_lat != 0.0 or manual_lon != 0.0))
-            
-            if st.button("📍 Set These Coordinates", 
-                        disabled=not coords_valid,
-                        type="primary" if coords_valid else "secondary"):
-                if coords_valid:
-                    # Try to get city/country from coordinates using reverse geocoding
-                    with st.spinner("🔍 Looking up location details..."):
-                        try:
-                            response = requests.get(
-                                f'https://api.bigdatacloud.net/data/reverse-geocode-client?latitude={manual_lat}&longitude={manual_lon}&localityLanguage=en',
-                                timeout=5
-                            )
-                            if response.status_code == 200:
-                                geo_data = response.json()
-                                city = geo_data.get('city') or geo_data.get('locality') or 'Unknown City'
-                                country = geo_data.get('countryName') or 'Unknown Country'
-                                region = geo_data.get('principalSubdivision') or 'Unknown Region'
-                            else:
-                                city = f"Lat: {manual_lat:.4f}"
-                                country = f"Lon: {manual_lon:.4f}"
-                                region = "Coordinates"
-                        except Exception:
-                            city = f"Lat: {manual_lat:.4f}"
-                            country = f"Lon: {manual_lon:.4f}"
-                            region = "Coordinates"
-                        
-                        location_data = {
-                            "city": city,
-                            "region": region,
-                            "country": country,
-                            "latitude": float(manual_lat),
-                            "longitude": float(manual_lon),
-                            "detection_method": "manual_coordinates",
-                            "timestamp": time.time(),
-                            "service": "manual"
-                        }
-                        st.session_state['auto_location'] = location_data
-                        st.success(f"✅ Coordinates set: {manual_lat:.6f}, {manual_lon:.6f}")
-                        st.rerun()
-        
-        with col_help:
-            if not coords_valid:
-                if manual_lat == 0.0 and manual_lon == 0.0:
-                    st.warning("⚠️ Please enter your actual coordinates (not 0,0)")
-                elif not (-90 <= manual_lat <= 90):
-                    st.error("❌ Latitude must be between -90 and +90")
-                elif not (-180 <= manual_lon <= 180):
-                    st.error("❌ Longitude must be between -180 and +180")
-            else:
-                st.success("✅ Coordinates look valid!")
-        
-        # Help section
-        with st.expander("ℹ️ How to find your coordinates"):
-            st.markdown("""
-            **Ways to get your GPS coordinates:**
-            
-            1. **Google Maps**: Right-click on your location → Click the coordinates that appear
-            2. **Phone GPS**: Use apps like "GPS Coordinates" or "My Location"
-            3. **Device Location**: Try the "Device Location" option above first
-            4. **Online Tools**: Search "what are my coordinates" in your browser
-            
-            **Format:** Decimal degrees (e.g., 40.712776, -74.006000)
-            """)
+        # Validate coordinates
+        if -90 <= manual_lat <= 90 and -180 <= manual_lon <= 180:
+            if st.button("💾 Set Coordinates"):
+                # Try to get city/country from coordinates using reverse geocoding
+                try:
+                    response = requests.get(
+                        f'https://api.bigdatacloud.net/data/reverse-geocode-client?latitude={manual_lat}&longitude={manual_lon}&localityLanguage=en',
+                        timeout=5
+                    )
+                    if response.status_code == 200:
+                        geo_data = response.json()
+                        city = geo_data.get('city') or geo_data.get('locality') or 'Unknown City'
+                        country = geo_data.get('countryName') or 'Unknown Country'
+                        region = geo_data.get('principalSubdivision') or 'Unknown Region'
+                    else:
+                        city = f"Lat: {manual_lat:.4f}"
+                        country = f"Lon: {manual_lon:.4f}"
+                        region = "Coordinates"
+                except Exception:
+                    city = f"Lat: {manual_lat:.4f}"
+                    country = f"Lon: {manual_lon:.4f}"
+                    region = "Coordinates"
+                
+                location_data = {
+                    "city": city,
+                    "region": region,
+                    "country": country,
+                    "latitude": float(manual_lat),
+                    "longitude": float(manual_lon),
+                    "detection_method": "manual_coordinates",
+                    "timestamp": time.time(),
+                    "service": "manual"
+                }
+                st.session_state['auto_location'] = location_data
+                st.success(f"✅ Coordinates set: {manual_lat:.6f}, {manual_lon:.6f}")
+                st.rerun()
+        else:
+            st.error("❌ Invalid coordinates. Latitude must be between -90 and 90, longitude between -180 and 180")
         
         # Return early if manual coordinates not yet set
         if ('auto_location' not in st.session_state or 
             st.session_state['auto_location'].get('detection_method') != 'manual_coordinates'):
-            st.info("📍 Please enter and set your coordinates above")
+            st.warning("⚠️ Please set your coordinates above")
             return None
     
     # Enhanced location status display with accuracy warnings
