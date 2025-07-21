@@ -334,78 +334,13 @@ def get_auto_location():
                         st.error(f"❌ Location detection failed: {str(e2)}")
                         location_data = None
     
-    # Display current location with enhanced details
+    # Simple location status display
     if st.session_state.get('auto_location'):
         location_data = st.session_state['auto_location']
-        
-        # Enhanced location display with coordinates
-        if location_data.get('latitude') and location_data.get('longitude'):
-            coords_text = f" ({location_data['latitude']:.4f}, {location_data['longitude']:.4f})"
-            accuracy_indicator = "🎯"  # Precise coordinates available
-        else:
-            coords_text = " (coordinates unavailable)"
-            accuracy_indicator = "📍"  # Basic location only
-            
-        st.info(f"{accuracy_indicator} **Current Location**: {location_data['city']}, {location_data['country']}{coords_text}")
-        
-        # Show detailed location information
-        with st.expander("📊 Location Details"):
-            col1, col2 = st.columns(2)
-            with col1:
-                st.write(f"**🏙️ City:** {location_data.get('city', 'Unknown')}")
-                st.write(f"**🌍 Country:** {location_data.get('country', 'Unknown')} ({location_data.get('country_code', 'N/A')})")
-                st.write(f"**📍 Coordinates:** {location_data.get('latitude', 0):.6f}, {location_data.get('longitude', 0):.6f}")
-            with col2:
-                if location_data.get('detection_method') == 'ip_geolocation':
-                    st.write(f"**🌐 ISP:** {location_data.get('isp', 'Unknown')}")
-                    st.write(f"**⏰ Timezone:** {location_data.get('timezone', 'Unknown')}")
-                    st.write(f"**🔍 Service:** {location_data.get('service', 'Unknown')}")
-                    if location_data.get('ip_address'):
-                        st.write(f"**🌐 IP:** {location_data['ip_address']}")
-                else:
-                    st.write(f"**🔍 Method:** Manual Coordinates")
-                    st.write(f"**⏰ Set:** {time.strftime('%H:%M:%S', time.localtime(location_data.get('timestamp', 0)))}")
-        
-        # Show service used and age of data
-        if 'timestamp' in location_data:
-            age_minutes = (time.time() - location_data['timestamp']) / 60
-            if location_data.get('detection_method') == 'ip_geolocation':
-                detection_text = f"IP geolocation via {location_data.get('service', 'unknown service')}"
-            else:
-                detection_text = "Manual coordinates entry"
-            st.caption(f"🕒 Set {age_minutes:.0f} minutes ago via {detection_text}")
-        
-        # Action buttons
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("🔄 Refresh Location", help="Get fresh location data"):
-                # Clear cached location to force refresh
-                if 'auto_location' in st.session_state:
-                    del st.session_state['auto_location']
-                st.rerun()
-        with col2:
-            if st.button("📍 Switch Method", help="Switch between IP and manual entry"):
-                # Clear cached location and let user choose again
-                if 'auto_location' in st.session_state:
-                    del st.session_state['auto_location']
-                st.rerun()
-        
-        # Show debug info if IP location seems wrong (likely server location)
-        if (location_data.get('detection_method') == 'ip_geolocation' and 
-            (location_data.get('city') == 'The Dalles' or location_data.get('country') == 'United States')):
-            st.warning("⚠️ Location may be incorrect due to proxy/CDN. Consider using manual coordinates for accuracy.")
-            with st.expander("🔍 Debug Info"):
-                st.json({
-                    "detected_city": location_data.get('city'),
-                    "detected_country": location_data.get('country'),
-                    "service_used": location_data.get('service'),
-                    "detection_method": location_data.get('detection_method'),
-                    "note": "This may be the server location, not your actual location"
-                })
-        
+        st.success("✅ Location detected")
         return location_data
     else:
-        st.error("❌ Location detection failed. Location is required for uploads.")
+        st.warning("📍 Please set your location above")
         return None
 
 def validate_location_before_upload():
