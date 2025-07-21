@@ -1,4 +1,17 @@
 streamlit>=1.28.0
 pandas>=2.2.0
+matplotlib>=3.7.0
+
+# Cloud Database Dependencies
+supabase>=2.3.0
+pymongo>=4.6.0
+pyairtable>=2.3.0
+firebase-admin>=6.4.0
+
+# Optional dependencies for enhanced features
+Pillow>=10.0.0
+plotly>=5.17.0
+requests>=2.31.0eamlit>=1.28.0
+pandas>=2.2.0
 matplotlib>=3.8.0
 requests>=2.31.0

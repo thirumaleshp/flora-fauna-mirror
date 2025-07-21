@@ -1,3 +1,6 @@
+# Streamlit secrets (contains sensitive database credentials)
+.streamlit/secrets.toml
+
 # Data collection directories
 data/
 *.pyc
@@ -7,6 +10,24 @@ __pycache__/
 # IDE files
 .vscode/
 .idea/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Virtual environments
+venv/
+.venv/
+env/
+.env/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
 
 # OS files
 .DS_Store
