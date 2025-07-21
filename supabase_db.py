@@ -19,7 +19,7 @@ class SupabaseManager:
     
     def __init__(self):
         self.supabase: Optional[Client] = None
-        self.table_name = "collected_data"
+        self.table_name = "data_entries"
         self._initialize()
     
     def _initialize(self):
@@ -34,7 +34,7 @@ class SupabaseManager:
             
             if url and key:
                 self.supabase = create_client(url, key)
-                self._create_table_if_not_exists()
+                # Don't try to create tables - they should exist from setup script
             else:
                 st.warning("🔑 Supabase credentials not found in secrets. Please configure SUPABASE_URL and SUPABASE_ANON_KEY")
         except Exception as e:
@@ -108,6 +108,45 @@ class SupabaseManager:
             st.error(f"Cloud storage error: {str(e)}")
             return None
 
+    def upload_bytes_to_storage(self, file_bytes: bytes, filename: str, bucket: str, data_type: str) -> Optional[str]:
+        """Upload file bytes to Supabase Storage and return public URL"""
+        if not self.is_available():
+            return None
+        
+        try:
+            # Create unique filename with timestamp
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            file_extension = filename.split('.')[-1] if '.' in filename else ''
+            unique_filename = f"{timestamp}_{filename}"
+            
+            # Determine content type based on data type and extension
+            content_type_mapping = {
+                'image': {'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'png': 'image/png', 'gif': 'image/gif'},
+                'audio': {'mp3': 'audio/mpeg', 'wav': 'audio/wav', 'ogg': 'audio/ogg'},
+                'video': {'mp4': 'video/mp4', 'avi': 'video/avi', 'mov': 'video/quicktime'}
+            }
+            
+            content_type = content_type_mapping.get(data_type, {}).get(file_extension.lower(), 'application/octet-stream')
+            
+            # Upload file to Supabase Storage
+            response = self.supabase.storage.from_(bucket).upload(
+                unique_filename, 
+                file_bytes,
+                file_options={"content-type": content_type}
+            )
+            
+            if response:
+                # Get public URL
+                public_url = self.supabase.storage.from_(bucket).get_public_url(unique_filename)
+                return public_url
+            else:
+                st.error(f"Failed to upload {filename} to cloud storage")
+                return None
+                
+        except Exception as e:
+            st.error(f"Cloud storage error: {str(e)}")
+            return None
+
     def upload_text_to_storage(self, text_content: str, filename: str) -> Optional[str]:
         """Upload text content to Supabase Storage as a text file"""
         if not self.is_available():
@@ -144,6 +183,7 @@ class SupabaseManager:
                   additional_info: Dict = None, location_data: Dict = None) -> Optional[int]:
         """Save data to Supabase"""
         if not self.is_available():
+            st.error("❌ Supabase not available")
             return None
         
         try:
@@ -155,16 +195,18 @@ class SupabaseManager:
                 # For text data, upload content as text file
                 text_content = additional_info.get('content')
                 file_url = self.upload_text_to_storage(text_content, filename)
+                st.success(f"✅ Text uploaded to storage: {file_url[:50]}..." if file_url else "❌ Text upload failed")
             
-            elif file_data and hasattr(self, '_current_uploaded_file'):
-                # For other file types, upload the file
+            elif file_data:
+                # For other file types, upload the file bytes directly
                 bucket_mapping = {
                     'image': 'images',
                     'audio': 'audios', 
                     'video': 'videos'
                 }
                 bucket = bucket_mapping.get(data_type, 'images')
-                file_url = self.upload_file_to_storage(self._current_uploaded_file, bucket)
+                file_url = self.upload_bytes_to_storage(file_data, filename, bucket, data_type)
+                st.success(f"✅ {data_type} uploaded to {bucket}: {file_url[:50]}..." if file_url else f"❌ {data_type} upload failed")
             
             # Prepare data for insertion
             record = {
@@ -178,9 +220,14 @@ class SupabaseManager:
             
             # Add location data
             if location_data:
+                # Handle both old structure (with coordinates dict) and new flat structure
                 if 'coordinates' in location_data:
                     record["location_lat"] = location_data['coordinates'].get('latitude')
                     record["location_lng"] = location_data['coordinates'].get('longitude')
+                else:
+                    # New flat structure
+                    record["location_lat"] = location_data.get('latitude')
+                    record["location_lng"] = location_data.get('longitude')
                 record["location_name"] = f"{location_data.get('city', '')}, {location_data.get('country', '')}"
             
             # Add additional metadata
@@ -188,11 +235,15 @@ class SupabaseManager:
                 record["metadata"] = additional_info
             
             # Insert data
+            st.info(f"🔄 Inserting record into data_entries table...")
             response = self.supabase.table("data_entries").insert(record).execute()
             
             if response.data:
-                return response.data[0]['id']
+                record_id = response.data[0]['id']
+                st.success(f"✅ Record saved to database with ID: {record_id}")
+                return record_id
             else:
+                st.error("❌ No data returned from database insert")
                 return None
                 
         except Exception as e:

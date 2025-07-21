@@ -2,8 +2,8 @@ import streamlit as st
 
 # Configure page - MUST be first Streamlit command
 st.set_page_config(
-    page_title="Data Collection App",
-    page_icon="📊",
+    page_title="Flora and Fauna Data Collection",
+    page_icon="🌿",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -12,31 +12,20 @@ st.set_page_config(
 import os
 import datetime
 import pandas as pd
-from pathlib import Path
 import json
-import sqlite3
 import streamlit.components.v1 as components
 
 # Cloud database imports (after page config)
 try:
-    from database_config import CloudDatabaseSelector, DatabaseConfig
     from supabase_db import supabase_manager
-    from mongodb_atlas import mongodb_manager
-    from unified_db import db_manager
     CLOUD_DB_AVAILABLE = True
 except ImportError:
     CLOUD_DB_AVAILABLE = False
-
-# Create directories for storing collected data
-def create_directories():
-    directories = ['data/text', 'data/audio', 'data/video', 'data/images']
-    for directory in directories:
-        Path(directory).mkdir(parents=True, exist_ok=True)
-
-create_directories()
+    st.error("❌ Cloud database modules not available")
 
 # Main title
-st.title("📊 Multi-Media Data Collection Application")
+st.title("🌿 Flora and Fauna Data Collection")
+st.markdown("*Document and preserve biodiversity through multi-media data collection*")
 st.markdown("---")
 
 # Sidebar for navigation
@@ -46,358 +35,55 @@ data_type = st.sidebar.radio(
     ["📝 Text Data", "🎵 Audio Data", "🎥 Video Data", "🖼️ Image Data", "📈 View Collected Data"]
 )
 
-# Cloud Database Configuration Section
+# Show current database status
 st.sidebar.markdown("---")
-st.sidebar.title("🌐 Database Configuration")
-
+st.sidebar.title("💾 Database Status")
 if CLOUD_DB_AVAILABLE:
-    # Database selection
-    available_providers = CloudDatabaseSelector.get_available_providers()
-    
-    if len(available_providers) > 1:
-        selected_provider = st.sidebar.selectbox(
-            "Choose Database:",
-            available_providers,
-            help="Select your preferred cloud database"
-        )
-        
-        # Show status
-        if selected_provider == "Local SQLite (Fallback)":
-            st.sidebar.info("📁 Using local SQLite database")
-        else:
-            st.sidebar.success(f"🌐 Connected to {selected_provider}")
+    if supabase_manager.is_available():
+        st.sidebar.success("✅ Supabase Connected")
+        st.sidebar.info("☁️ Cloud Storage Active")
     else:
-        selected_provider = available_providers[0] if available_providers else "Local SQLite (Fallback)"
-        st.sidebar.info(f"📊 Database: {selected_provider}")
-    
-    # Store selected provider in session state
-    st.session_state['selected_db_provider'] = selected_provider
-    
-    # Show setup button for unconfigured providers
-    if st.sidebar.button("⚙️ Database Setup Guide"):
-        st.session_state['show_db_setup'] = True
-    
-    # Supabase Storage Setup Button
-    if 'Supabase' in selected_provider:
-        if st.sidebar.button("🗂️ Setup Supabase Storage"):
-            st.session_state['show_storage_setup'] = True
-    
+        st.sidebar.error("❌ Supabase Not Connected")
+        st.sidebar.warning("Check credentials in secrets.toml")
 else:
-    st.sidebar.warning("⚠️ Cloud databases not available. Install dependencies to enable cloud storage.")
-    st.session_state['selected_db_provider'] = "Local SQLite (Fallback)"
+    st.sidebar.error("❌ Cloud database not available")
 
-# Database setup modal
-if st.session_state.get('show_db_setup', False):
-    with st.expander("🌐 Cloud Database Setup Guide", expanded=True):
-        st.markdown("### Choose Your Cloud Database")
-        
-        setup_provider = st.selectbox(
-            "Select database to configure:",
-            ["Supabase (PostgreSQL)", "MongoDB Atlas", "Airtable", "Firebase Firestore"]
-        )
-        
-        if CLOUD_DB_AVAILABLE:
-            CloudDatabaseSelector.show_setup_instructions(setup_provider)
-        else:
-            st.error("Install cloud database dependencies first:")
-            st.code("pip install supabase pymongo pyairtable firebase-admin")
-        
-        if st.button("Close Setup Guide"):
-            st.session_state['show_db_setup'] = False
-            st.rerun()
-
-# Supabase Storage setup modal
-if st.session_state.get('show_storage_setup', False):
-    with st.expander("🗂️ Supabase Storage Setup", expanded=True):
-        st.markdown("### Create Storage Buckets")
-        st.info("""
-        Create storage buckets to upload images, audio, and video files to Supabase Storage.
-        This will allow you to view uploaded files directly in the app and Supabase dashboard.
-        """)
-        
-        if st.button("🚀 Create Storage Buckets"):
-            try:
-                from supabase import create_client, Client
-                
-                # Get credentials from Streamlit secrets
-                supabase_url = st.secrets.supabase.url
-                supabase_key = st.secrets.supabase.key
-                
-                # Create Supabase client
-                supabase: Client = create_client(supabase_url, supabase_key)
-                
-                # Buckets to create
-                buckets = ["images", "audios", "videos"]
-                
-                with st.spinner("Creating storage buckets and setting up permissions..."):
-                    success_count = 0
-                    for bucket_name in buckets:
-                        try:
-                            # Check if bucket exists
-                            existing_buckets = supabase.storage.list_buckets()
-                            bucket_exists = any(b.name == bucket_name for b in existing_buckets)
-                            
-                            if bucket_exists:
-                                st.success(f"✅ Bucket '{bucket_name}' already exists")
-                                success_count += 1
-                            else:
-                                # Create bucket
-                                supabase.storage.create_bucket(bucket_name, {"public": True})
-                                st.success(f"✅ Created bucket: {bucket_name}")
-                                success_count += 1
-                            
-                        except Exception as e:
-                            st.error(f"❌ Error with bucket '{bucket_name}': {e}")
-                    
-                    # Set up RLS policies for storage
-                    st.info("🔒 Setting up storage permissions...")
-                    try:
-                        # Create policies for each bucket using SQL
-                        for bucket_name in buckets:
-                            policy_sql = f"""
-                            -- Enable RLS on storage.objects if not enabled
-                            ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
-                            
-                            -- Drop existing policy if it exists
-                            DROP POLICY IF EXISTS "Public Access for {bucket_name}" ON storage.objects;
-                            
-                            -- Create policy for public access to the bucket
-                            CREATE POLICY "Public Access for {bucket_name}" ON storage.objects
-                            FOR ALL USING (bucket_id = '{bucket_name}');
-                            
-                            -- Drop existing policy for authenticated users if it exists
-                            DROP POLICY IF EXISTS "Authenticated can upload to {bucket_name}" ON storage.objects;
-                            
-                            -- Create policy for authenticated users to upload
-                            CREATE POLICY "Authenticated can upload to {bucket_name}" ON storage.objects
-                            FOR INSERT WITH CHECK (bucket_id = '{bucket_name}');
-                            """
-                            
-                            # Execute the SQL
-                            supabase.rpc('exec_sql', {'sql': policy_sql})
-                        
-                        st.success("✅ Storage permissions configured!")
-                        
-                    except Exception as policy_error:
-                        st.warning(f"⚠️ Could not set up automatic policies: {policy_error}")
-                        st.info("""
-                        **Manual Setup Required:**
-                        Please run this SQL in your Supabase SQL Editor:
-                        
-                        ```sql
-                        -- Enable RLS
-                        ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
-                        
-                        -- Create policies for public access
-                        CREATE POLICY "Public Access" ON storage.objects
-                        FOR ALL USING (bucket_id IN ('images', 'audios', 'videos'));
-                        
-                        -- Allow authenticated uploads
-                        CREATE POLICY "Authenticated uploads" ON storage.objects
-                        FOR INSERT WITH CHECK (bucket_id IN ('images', 'audios', 'videos'));
-                        ```
-                        """)
-                    
-                    if success_count == len(buckets):
-                        st.balloons()
-                        st.success("🎉 All storage buckets ready! You can now upload files to Supabase Storage.")
-                
-            except Exception as e:
-                st.error(f"❌ Failed to create buckets: {e}")
-                st.write("Make sure your Supabase credentials are configured correctly.")
-        
-        if st.button("Close Storage Setup"):
-            st.session_state['show_storage_setup'] = False
-            st.rerun()
-        
-        # Quick fix for permissions
-        st.markdown("---")
-        st.markdown("### 🔧 Quick Fix for Upload Errors")
-        
-        # Simple Dashboard Fix
-        with st.expander("✅ Easy Dashboard Fix (Recommended)", expanded=True):
-            st.markdown("**Instead of SQL, use the Supabase Dashboard:**")
-            st.info("""
-            **Simple Steps (No SQL Required):**
-            1. 🌐 Go to your Supabase Dashboard → [supabase.com](https://supabase.com)
-            2. 📁 Click on "Storage" in the sidebar
-            3. 🗂️ Find your buckets: `images`, `audios`, `videos`
-            4. ⚙️ Click the settings icon (⚙️) next to each bucket
-            5. ✅ Toggle "Public bucket" to ON
-            6. 💾 Save the changes
-            7. 🔄 Try uploading in the app again!
-            
-            This makes the buckets public so files can be uploaded and viewed.
-            """)
-            
-            st.success("✨ This method is easier and doesn't require SQL permissions!")
-            
-            # Add a direct link
-            st.markdown("**🚀 [Open Supabase Dashboard](https://supabase.com/dashboard/projects)**")
-        
-        # SQL Alternative (if needed)
-        with st.expander("🔧 Admin Required: Fix Storage Permissions"):
-            st.warning("⚠️ **Permission Issue Detected:** You need admin privileges to fix storage.")
-            
-            st.markdown("**🚨 Error Explanation:**")
-            st.error("""
-            The error "must be owner of table objects" means you don't have admin 
-            permissions to modify storage security settings.
-            """)
-            
-            st.markdown("**🎯 Solutions:**")
-            
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.markdown("**Option 1: Admin Fix**")
-                st.info("""
-                Ask your Supabase project admin to run:
-                
-                ```sql
-                ALTER TABLE storage.objects 
-                DISABLE ROW LEVEL SECURITY;
-                ```
-                """)
-            
-            with col2:
-                st.markdown("**Option 2: Current Workaround**")
-                st.success("""
-                ✅ Metadata saves to database
-                💾 Files save locally  
-                📊 All features work
-                🔄 Can export/view data
-                """)
-            
-            st.markdown("**🔧 Alternative SQL (may work):**")
-            st.code("""
--- Try this instead (may work with your permissions):
-INSERT INTO storage.policies (name, bucket_id, policy_for, check_expression)
-VALUES 
-  ('Allow uploads', 'images', 'INSERT', 'true'),
-  ('Allow uploads', 'audios', 'INSERT', 'true'),
-  ('Allow uploads', 'videos', 'INSERT', 'true')
-ON CONFLICT DO NOTHING;
-            """, language="sql")
-            
-            st.markdown("**📋 Current Status:**")
-            st.success("""
-            ✅ Your app is fully functional! Files are saved to cloud storage and metadata 
-            is stored in Supabase. All team members can access uploaded files from anywhere.
-            """)
-            
-            st.warning("⚠️ **Root Cause:** Supabase Row Level Security requires admin privileges to modify")
-            
-        # Status check
-        st.markdown("---")
-        st.markdown("### 📊 Current Status")
-        st.success("""
-        **✅ Your App is Working Perfectly!**
-        
-        **What's Working:**
-        - ✅ All file uploads (images, audio, video, text)
-        - ✅ Metadata saved to Supabase database
-        - ✅ Files saved locally for backup
-        - ✅ Location tracking and metadata
-        - ✅ Data viewing and preview
-        - ✅ Export functionality
-        - ✅ Analytics and search
-        
-        **Storage Status:**
-        - 💾 Files: Stored locally (reliable backup)
-        - ☁️ Metadata: Stored in Supabase (cloud database)
-        - 🔄 Ready for cloud storage once admin fixes permissions
-        """)
-        
-        st.info("""
-        **📋 Summary:**
-        Your data collection project is fully functional! The only difference is that 
-        files are stored on your local system instead of cloud storage. All your data 
-        is being tracked in the cloud database, and you can export everything anytime.
-        """)
-        
-        # Simple test button
-        if st.button("✅ Test Current Setup"):
-            st.balloons()
-            st.success("""
-            🎉 **Setup Test Complete!**
-            
-            ✅ Database connection: Working
-            ✅ File storage: Local (working)
-            ✅ Data collection: Ready
-            ✅ All features: Available
-            
-            **You're ready to collect data!** 🚀
-            """)
-            
-        st.markdown("---")
-        st.markdown("**🔧 For Future Cloud Storage:**")
-        st.info("""
-        When you have admin access to your Supabase project, run this SQL to enable cloud storage:
-        
-        ```sql
-        ALTER TABLE storage.objects DISABLE ROW LEVEL SECURITY;
-        ```
-        
-        Until then, your app works perfectly with local file storage! 💪
-        """)
-
-# Function to save metadata with location
-def save_metadata(data_type, filename, additional_info=None, location_data=None):
-    metadata = {
-        "timestamp": datetime.datetime.now().isoformat(),
-        "data_type": data_type,
-        "filename": filename,
-        "location": location_data,
-        "additional_info": additional_info or {}
-    }
-    
-    metadata_file = "data/metadata.json"
-    if os.path.exists(metadata_file):
-        with open(metadata_file, 'r') as f:
-            all_metadata = json.load(f)
-    else:
-        all_metadata = []
-    
-    all_metadata.append(metadata)
-    
-    with open(metadata_file, 'w') as f:
-        json.dump(all_metadata, f, indent=2)
+st.sidebar.markdown("---")
 
 def display_file_preview(row, idx):
     """Display a preview of the file based on its type"""
-    data_type = row['data_type']
-    filename = row['filename']
+    data_type = row['entry_type']  # Fixed column name
+    filename = row['title']        # Fixed column name
     
     with st.expander(f"🔍 Preview: {filename}", expanded=True):
         
         # Check if file is stored in Supabase Storage (has URL)
-        if pd.notna(row.get('file_data')) and isinstance(row['file_data'], str) and row['file_data'].startswith('http'):
+        if pd.notna(row.get('file_url')) and isinstance(row['file_url'], str) and row['file_url'].startswith('http'):
             st.success("☁️ File stored in Supabase Storage")
             
             if data_type == 'image':
                 try:
-                    st.image(row['file_data'], caption=filename, use_column_width=True)
-                    st.markdown(f"🔗 [Open in new tab]({row['file_data']})")
+                    st.image(row['file_url'], caption=filename, use_column_width=True)
+                    st.markdown(f"🔗 [Open in new tab]({row['file_url']})")
                 except Exception as e:
                     st.error(f"❌ Could not display image: {e}")
-                    st.markdown(f"🔗 [View file directly]({row['file_data']})")
+                    st.markdown(f"🔗 [View file directly]({row['file_url']})")
             
             elif data_type == 'audio':
                 try:
-                    st.audio(row['file_data'])
-                    st.markdown(f"🔗 [Download audio]({row['file_data']})")
+                    st.audio(row['file_url'])
+                    st.markdown(f"🔗 [Download audio]({row['file_url']})")
                 except Exception as e:
                     st.error(f"❌ Could not play audio: {e}")
-                    st.markdown(f"🔗 [Download file directly]({row['file_data']})")
+                    st.markdown(f"🔗 [Download file directly]({row['file_url']})")
             
             elif data_type == 'video':
                 try:
-                    st.video(row['file_data'])
-                    st.markdown(f"🔗 [Download video]({row['file_data']})")
+                    st.video(row['file_url'])
+                    st.markdown(f"🔗 [Download video]({row['file_url']})")
                 except Exception as e:
                     st.error(f"❌ Could not play video: {e}")
-                    st.markdown(f"🔗 [Download file directly]({row['file_data']})")
+                    st.markdown(f"🔗 [Download file directly]({row['file_url']})")
             
             elif data_type == 'text':
                 try:
@@ -410,13 +96,13 @@ def display_file_preview(row, idx):
                         st.text_area("📄 Description:", row['description'], height=100, key=f"text_desc_{idx}")
                     
                     # If there's a cloud file URL, show it and allow download
-                    if row['file_data']:
-                        st.markdown(f"🔗 [Download text file]({row['file_data']})")
+                    if row['file_url']:
+                        st.markdown(f"🔗 [Download text file]({row['file_url']})")
                         
                         # Try to fetch and display cloud text file content
                         try:
                             import requests
-                            response = requests.get(row['file_data'])
+                            response = requests.get(row['file_url'])
                             if response.status_code == 200:
                                 cloud_content = response.text
                                 if cloud_content.strip() and cloud_content != row.get('content', ''):
@@ -428,7 +114,7 @@ def display_file_preview(row, idx):
                     st.error(f"❌ Could not display text: {e}")
             
             else:
-                st.markdown(f"🔗 [View/Download file]({row['file_data']})")
+                st.markdown(f"🔗 [View/Download file]({row['file_url']})")
         
         # Fallback: Try to load from local storage
         else:
@@ -516,6 +202,73 @@ def display_file_preview(row, idx):
             st.rerun()
 
 # Location Component
+def get_auto_location():
+    """Get location automatically using IP geolocation (mandatory for all uploads)"""
+    if 'auto_location' not in st.session_state:
+        with st.spinner("🌐 Automatically detecting your location..."):
+            try:
+                import requests
+                response = requests.get('http://ip-api.com/json/', timeout=5)
+                if response.status_code == 200:
+                    ip_data = response.json()
+                    if ip_data.get('status') == 'success':
+                        location_data = {
+                            "city": ip_data.get("city", "Unknown"),
+                            "region": ip_data.get("regionName", "Unknown"), 
+                            "country": ip_data.get("country", "Unknown"),
+                            "coordinates": {
+                                "latitude": ip_data.get("lat"),
+                                "longitude": ip_data.get("lon")
+                            },
+                            "detection_method": "ip_geolocation_auto"
+                        }
+                        st.session_state['auto_location'] = location_data
+                        st.success(f"✅ Location detected: {location_data['city']}, {location_data['country']}")
+                    else:
+                        st.error("❌ Location detection failed")
+                        st.session_state['auto_location'] = None
+                else:
+                    st.error("❌ Failed to connect to location service")
+                    st.session_state['auto_location'] = None
+            except Exception as e:
+                st.error(f"❌ Location detection error: {str(e)}")
+                st.session_state['auto_location'] = None
+    
+    # Display current location
+    if st.session_state.get('auto_location'):
+        location_data = st.session_state['auto_location']
+        st.info(f"📍 **Current Location**: {location_data['city']}, {location_data['country']} ({location_data['coordinates']['latitude']:.4f}, {location_data['coordinates']['longitude']:.4f})")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("🔄 Refresh Location"):
+                del st.session_state['auto_location']
+                st.rerun()
+        with col2:
+            override = st.checkbox("✏️ Edit location")
+        
+        if override:
+            new_city = st.text_input("City:", value=location_data['city'])
+            new_country = st.text_input("Country:", value=location_data['country'])
+            new_coords = st.text_input("Coordinates:", value=f"{location_data['coordinates']['latitude']}, {location_data['coordinates']['longitude']}")
+            if st.button("Update") and new_city and new_country and new_coords:
+                try:
+                    lat, lon = map(float, new_coords.split(','))
+                    st.session_state['auto_location'].update({
+                        "city": new_city, "country": new_country, 
+                        "coordinates": {"latitude": lat, "longitude": lon},
+                        "detection_method": "manual_override"
+                    })
+                    st.success("✅ Location updated!")
+                    st.rerun()
+                except ValueError:
+                    st.error("❌ Invalid coordinates format. Use: latitude, longitude")
+        
+        return location_data
+    else:
+        st.error("❌ Location detection failed. Location is required for uploads.")
+        return None
+
 def get_location_component():
     """Create a location input component with automatic detection"""
     st.subheader("📍 Location Information")
@@ -777,8 +530,98 @@ def get_location_component():
 if data_type == "📝 Text Data":
     st.header("📝 Text Data Collection")
     
-    # Location component
-    location_data = get_location_component()
+    # Mandatory Auto-Location Detection
+    st.subheader("📍 Location (Auto-Detected)")
+    
+    # Auto-fetch location on first load
+    if 'auto_location' not in st.session_state:
+        with st.spinner("🌐 Automatically detecting your location..."):
+            try:
+                import requests
+                response = requests.get('http://ip-api.com/json/', timeout=5)
+                if response.status_code == 200:
+                    ip_data = response.json()
+                    if ip_data.get('status') == 'success':
+                        location_data = {
+                            "city": ip_data.get("city", "Unknown"),
+                            "region": ip_data.get("regionName", "Unknown"), 
+                            "country": ip_data.get("country", "Unknown"),
+                            "latitude": ip_data.get("lat"),
+                            "longitude": ip_data.get("lon"),
+                            "detection_method": "ip_geolocation_auto"
+                        }
+                        st.session_state['auto_location'] = location_data
+                        st.success(f"✅ Location detected: {location_data['city']}, {location_data['country']}")
+                    else:
+                        st.error("❌ Location detection failed")
+                        st.session_state['auto_location'] = None
+                else:
+                    st.error("❌ Failed to connect to location service")
+                    st.session_state['auto_location'] = None
+            except Exception as e:
+                st.error(f"❌ Location detection error: {str(e)}")
+                st.session_state['auto_location'] = None
+    
+    # Display current location
+    if st.session_state.get('auto_location'):
+        location_data = st.session_state['auto_location']
+        st.info(f"📍 **Current Location**: {location_data['city']}, {location_data['country']} ({location_data['latitude']:.4f}, {location_data['longitude']:.4f})")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("🔄 Refresh Location"):
+                del st.session_state['auto_location']
+                st.rerun()
+        with col2:
+            override = st.checkbox("✏️ Edit location")
+        
+        if override:
+            new_city = st.text_input("City:", value=location_data['city'])
+            new_country = st.text_input("Country:", value=location_data['country'])
+            new_coords = st.text_input("Coordinates:", value=f"{location_data['latitude']}, {location_data['longitude']}")
+            if st.button("Update") and new_city and new_country and new_coords:
+                try:
+                    lat, lon = map(float, new_coords.split(','))
+                    st.session_state['auto_location'].update({
+                        "city": new_city, "country": new_country, 
+                        "latitude": lat, "longitude": lon,
+                        "detection_method": "manual_override"
+                    })
+                    st.success("✅ Location updated!")
+                    st.rerun()
+                except:
+                    st.error("❌ Invalid coordinates format")
+    else:
+        st.error("❌ **Location is required for data upload**")
+        st.warning("Please provide location manually:")
+        manual_city = st.text_input("City (Required):")
+        manual_country = st.text_input("Country (Required):")
+        manual_coords = st.text_input("Coordinates (lat, lng):")
+        
+        if st.button("🌐 Try Auto-Detect Again"):
+            if 'auto_location' in st.session_state:
+                del st.session_state['auto_location']
+            st.rerun()
+        
+        if manual_city and manual_country and manual_coords:
+            try:
+                lat, lon = map(float, manual_coords.split(','))
+                if -90 <= lat <= 90 and -180 <= lon <= 180:
+                    location_data = {
+                        "city": manual_city, "country": manual_country,
+                        "latitude": lat, "longitude": lon,
+                        "detection_method": "manual_required"
+                    }
+                    st.session_state['auto_location'] = location_data
+                    st.success("✅ Manual location set!")
+                    st.rerun()
+                else:
+                    st.error("❌ Invalid coordinate range")
+            except:
+                st.error("❌ Invalid coordinate format")
+        
+        location_data = None  # No valid location
+    
     st.markdown("---")
     
     col1, col2 = st.columns([2, 1])
@@ -794,70 +637,72 @@ if data_type == "📝 Text Data":
             category = st.selectbox("Category:", ["General", "Research", "Survey", "Feedback", "Other"])
             
             if st.button("Save Text") and text_input:
-                timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-                filename = f"text_{timestamp}.txt"
-                filepath = f"data/text/{filename}"
-                
-                # Save to file system (for backward compatibility)
-                with open(filepath, 'w') as f:
-                    f.write(f"Category: {category}\n")
-                    f.write(f"Timestamp: {timestamp}\n")
-                    f.write(f"Content: {text_input}\n")
-                
-                # Save to unified database (cloud or local)
-                file_data = text_input.encode('utf-8')
-                additional_info = {
-                    "category": category, 
-                    "method": "single_entry",
-                    "file_size": len(file_data),
-                    "content": text_input
-                }
-                
-                if CLOUD_DB_AVAILABLE:
-                    data_id = db_manager.save_data("text", filename, file_data, additional_info, location_data)
-                    provider_info = db_manager.get_provider_info()
-                    st.success(f"✅ Text saved successfully as {filename}")
-                    st.info(f"💾 Stored in: {provider_info['name']} (ID: {data_id})")
+                # Check if location is available
+                if not location_data:
+                    st.error("❌ Location is required! Please set your location above before saving.")
                 else:
-                    # Fallback to legacy JSON save
-                    save_metadata("text", filename, {"category": category, "method": "single_entry"}, location_data)
-                    st.success(f"✅ Text saved successfully as {filename}")
-                    st.info("💾 Stored in local files")
+                    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                    filename = f"text_{timestamp}.txt"
+                    filepath = f"data/text/{filename}"
+                    
+                    # Save to file system (for backward compatibility)
+                    with open(filepath, 'w') as f:
+                        f.write(f"Category: {category}\n")
+                        f.write(f"Timestamp: {timestamp}\n")
+                        f.write(f"Content: {text_input}\n")
+                    
+                    # Save to unified database (cloud or local)
+                    file_data = text_input.encode('utf-8')
+                    additional_info = {
+                        "category": category, 
+                        "method": "single_entry",
+                        "file_size": len(file_data),
+                        "content": text_input
+                    }
+                    
+                    if CLOUD_DB_AVAILABLE:
+                        data_id = supabase_manager.save_data("text", filename, file_data, additional_info, location_data)
+                        st.success(f"✅ Text saved successfully as {filename}")
+                        st.info(f"💾 Stored in: Supabase (ID: {data_id})")
+                        st.info(f"📍 Location: {location_data['city']}, {location_data['country']}")
+                    else:
+                        st.error("❌ Failed to save to cloud storage. Please check your Supabase connection.")
         
         elif input_method == "Multi-line Text":
             text_area = st.text_area("Enter multi-line text:", height=200, placeholder="Enter your multi-line text here...")
             category = st.selectbox("Category:", ["General", "Research", "Survey", "Feedback", "Other"], key="multiline_category")
             
             if st.button("Save Multi-line Text") and text_area:
-                timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-                filename = f"multitext_{timestamp}.txt"
-                filepath = f"data/text/{filename}"
-                
-                # Save to file system (for backward compatibility)
-                with open(filepath, 'w') as f:
-                    f.write(f"Category: {category}\n")
-                    f.write(f"Timestamp: {timestamp}\n")
-                    f.write(f"Content:\n{text_area}\n")
-                
-                # Save to unified database (cloud or local)
-                file_data = text_area.encode('utf-8')
-                additional_info = {
-                    "category": category, 
-                    "method": "multi_line",
-                    "file_size": len(file_data),
-                    "content": text_area
-                }
-                
-                if CLOUD_DB_AVAILABLE:
-                    data_id = db_manager.save_data("text", filename, file_data, additional_info, location_data)
-                    provider_info = db_manager.get_provider_info()
-                    st.success(f"✅ Multi-line text saved successfully as {filename}")
-                    st.info(f"💾 Stored in: {provider_info['name']} (ID: {data_id})")
+                # Check if location is available
+                if not location_data:
+                    st.error("❌ Location is required! Please set your location above before saving.")
                 else:
-                    # Fallback to legacy JSON save
-                    save_metadata("text", filename, {"category": category, "method": "multi_line"}, location_data)
-                    st.success(f"✅ Multi-line text saved successfully as {filename}")
-                    st.info("💾 Stored in local files")
+                    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                    filename = f"multitext_{timestamp}.txt"
+                    filepath = f"data/text/{filename}"
+                    
+                    # Save to file system (for backward compatibility)
+                    with open(filepath, 'w') as f:
+                        f.write(f"Category: {category}\n")
+                        f.write(f"Timestamp: {timestamp}\n")
+                        f.write(f"Content:\n{text_area}\n")
+                    
+                    # Save to unified database (cloud or local)
+                    file_data = text_area.encode('utf-8')
+                    additional_info = {
+                        "category": category, 
+                        "method": "multi_line",
+                        "file_size": len(file_data),
+                        "content": text_area
+                    }
+                    
+                    if CLOUD_DB_AVAILABLE:
+                        data_id = supabase_manager.save_data("text", filename, file_data, additional_info, location_data)
+                        st.success(f"✅ Multi-line text saved successfully as {filename}")
+                        st.info(f"💾 Stored in: Supabase (ID: {data_id})")
+                        st.info(f"📍 Location: {location_data['city']}, {location_data['country']}")
+                    else:
+                        st.error("❌ Failed to save to cloud storage. Please check your Supabase connection.")
         
         else:  # CSV Upload
             uploaded_file = st.file_uploader("Upload CSV file", type=['csv'])
@@ -884,15 +729,11 @@ if data_type == "📝 Text Data":
                     }
                     
                     if CLOUD_DB_AVAILABLE:
-                        data_id = db_manager.save_data("text", filename, file_data, additional_info, location_data)
-                        provider_info = db_manager.get_provider_info()
+                        data_id = supabase_manager.save_data("text", filename, file_data, additional_info, location_data)
                         st.success(f"✅ CSV data saved successfully as {filename}")
-                        st.info(f"💾 Stored in: {provider_info['name']} (ID: {data_id})")
+                        st.info(f"💾 Stored in: Supabase (ID: {data_id})")
                     else:
-                        # Fallback to legacy JSON save
-                        save_metadata("text", filename, {"method": "csv_upload", "rows": len(df), "columns": list(df.columns)}, location_data)
-                        st.success(f"✅ CSV data saved successfully as {filename}")
-                        st.info("💾 Stored in local files")
+                        st.error("❌ Failed to save to cloud storage. Please check your Supabase connection.")
     
     with col2:
         st.subheader("Instructions:")
@@ -910,8 +751,70 @@ if data_type == "📝 Text Data":
 elif data_type == "🎵 Audio Data":
     st.header("🎵 Audio Data Collection")
     
-    # Location component
-    location_data = get_location_component()
+    # Mandatory Auto-Location Detection
+    st.subheader("📍 Location (Auto-Detected)")
+    
+    # Auto-fetch location on first load
+    if 'auto_location' not in st.session_state:
+        with st.spinner("🌐 Automatically detecting your location..."):
+            try:
+                import requests
+                response = requests.get('http://ip-api.com/json/', timeout=5)
+                if response.status_code == 200:
+                    ip_data = response.json()
+                    if ip_data.get('status') == 'success':
+                        location_data = {
+                            "city": ip_data.get("city", "Unknown"),
+                            "region": ip_data.get("regionName", "Unknown"), 
+                            "country": ip_data.get("country", "Unknown"),
+                            "latitude": ip_data.get("lat"),
+                            "longitude": ip_data.get("lon"),
+                            "detection_method": "ip_geolocation_auto"
+                        }
+                        st.session_state['auto_location'] = location_data
+                        st.success(f"✅ Location detected: {location_data['city']}, {location_data['country']}")
+                    else:
+                        st.error("❌ Location detection failed")
+                        st.session_state['auto_location'] = None
+                else:
+                    st.error("❌ Failed to connect to location service")
+                    st.session_state['auto_location'] = None
+            except Exception as e:
+                st.error(f"❌ Location detection error: {str(e)}")
+                st.session_state['auto_location'] = None
+    
+    # Display current location
+    if st.session_state.get('auto_location'):
+        location_data = st.session_state['auto_location']
+        st.info(f"📍 **Current Location**: {location_data['city']}, {location_data['country']} ({location_data['latitude']:.4f}, {location_data['longitude']:.4f})")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("🔄 Refresh Location", key="audio_refresh_location"):
+                del st.session_state['auto_location']
+                st.rerun()
+        with col2:
+            override_audio = st.checkbox("✏️ Edit location", key="audio_edit_location")
+        
+        if override_audio:
+            new_city = st.text_input("City:", value=location_data['city'], key="audio_city")
+            new_country = st.text_input("Country:", value=location_data['country'], key="audio_country")
+            new_coords = st.text_input("Coordinates:", value=f"{location_data['latitude']}, {location_data['longitude']}", key="audio_coords")
+            if st.button("Update Location", key="audio_update_location") and new_city and new_country and new_coords:
+                try:
+                    lat, lon = map(float, new_coords.split(','))
+                    st.session_state['auto_location'].update({
+                        "city": new_city, "country": new_country, 
+                        "latitude": lat, "longitude": lon,
+                        "detection_method": "manual_override"
+                    })
+                    st.success("✅ Location updated!")
+                    st.rerun()
+                except ValueError:
+                    st.error("❌ Invalid coordinates format. Use: latitude, longitude")
+    else:
+        st.error("❌ Location detection failed. Location is required for uploads.")
+        
     st.markdown("---")
     
     col1, col2 = st.columns([2, 1])
@@ -931,38 +834,40 @@ elif data_type == "🎵 Audio Data":
             description = st.text_area("Description:", placeholder="Describe the audio content...")
             
             if st.button("Save Audio"):
-                timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-                file_extension = uploaded_audio.name.split('.')[-1]
-                filename = f"audio_{timestamp}.{file_extension}"
-                filepath = f"data/audio/{filename}"
-                
-                # Get file data
-                file_data = uploaded_audio.getbuffer()
-                file_bytes = bytes(file_data)  # Convert memoryview to bytes
-                
-                # Save to file system (for backward compatibility)
-                with open(filepath, 'wb') as f:
-                    f.write(file_bytes)
-                
-                # Save to unified database (cloud or local)
-                additional_info = {
-                    "category": audio_category,
-                    "duration": duration,
-                    "description": description,
-                    "original_name": uploaded_audio.name,
-                    "file_size": len(file_bytes)
-                }
-                
-                if CLOUD_DB_AVAILABLE:
-                    data_id = db_manager.save_data("audio", filename, file_bytes, additional_info, location_data, uploaded_audio)
-                    provider_info = db_manager.get_provider_info()
-                    st.success(f"🎵 Audio saved successfully as {filename}")
-                    st.info(f"💾 Stored in: {provider_info['name']} (ID: {data_id})")
+                # Use the location from session state
+                location_data = st.session_state.get('auto_location')
+                if not location_data:
+                    st.error("❌ Location is required! Please ensure location is detected above.")
                 else:
-                    # Fallback to legacy JSON save
-                    save_metadata("audio", filename, additional_info, location_data)
-                    st.success(f"🎵 Audio saved successfully as {filename}")
-                    st.info("💾 Stored in local files")
+                    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                    file_extension = uploaded_audio.name.split('.')[-1]
+                    filename = f"audio_{timestamp}.{file_extension}"
+                    filepath = f"data/audio/{filename}"
+                    
+                    # Get file data
+                    file_data = uploaded_audio.getbuffer()
+                    file_bytes = bytes(file_data)  # Convert memoryview to bytes
+                    
+                    # Save to file system (for backward compatibility)
+                    with open(filepath, 'wb') as f:
+                        f.write(file_bytes)
+                    
+                    # Save to unified database (cloud or local)
+                    additional_info = {
+                        "category": audio_category,
+                        "duration": duration,
+                        "description": description,
+                        "original_name": uploaded_audio.name,
+                        "file_size": len(file_bytes)
+                    }
+                    
+                    if CLOUD_DB_AVAILABLE:
+                        data_id = supabase_manager.save_data("audio", filename, file_bytes, additional_info, location_data)
+                        st.success(f"🎵 Audio saved successfully as {filename}")
+                        st.info(f"💾 Stored in: Supabase (ID: {data_id})")
+                        st.info(f"📍 Location: {location_data.get('city', 'Unknown')}, {location_data.get('country', 'Unknown')}")
+                    else:
+                        st.error("❌ Failed to save to cloud storage. Please check your Supabase connection.")
         
         # Recording instructions
         st.markdown("### 🎙️ Recording Audio")
@@ -984,8 +889,70 @@ elif data_type == "🎵 Audio Data":
 elif data_type == "🎥 Video Data":
     st.header("🎥 Video Data Collection")
     
-    # Location component
-    location_data = get_location_component()
+    # Mandatory Auto-Location Detection
+    st.subheader("📍 Location (Auto-Detected)")
+    
+    # Auto-fetch location on first load
+    if 'auto_location' not in st.session_state:
+        with st.spinner("🌐 Automatically detecting your location..."):
+            try:
+                import requests
+                response = requests.get('http://ip-api.com/json/', timeout=5)
+                if response.status_code == 200:
+                    ip_data = response.json()
+                    if ip_data.get('status') == 'success':
+                        location_data = {
+                            "city": ip_data.get("city", "Unknown"),
+                            "region": ip_data.get("regionName", "Unknown"), 
+                            "country": ip_data.get("country", "Unknown"),
+                            "latitude": ip_data.get("lat"),
+                            "longitude": ip_data.get("lon"),
+                            "detection_method": "ip_geolocation_auto"
+                        }
+                        st.session_state['auto_location'] = location_data
+                        st.success(f"✅ Location detected: {location_data['city']}, {location_data['country']}")
+                    else:
+                        st.error("❌ Location detection failed")
+                        st.session_state['auto_location'] = None
+                else:
+                    st.error("❌ Failed to connect to location service")
+                    st.session_state['auto_location'] = None
+            except Exception as e:
+                st.error(f"❌ Location detection error: {str(e)}")
+                st.session_state['auto_location'] = None
+    
+    # Display current location
+    if st.session_state.get('auto_location'):
+        location_data = st.session_state['auto_location']
+        st.info(f"📍 **Current Location**: {location_data['city']}, {location_data['country']} ({location_data['latitude']:.4f}, {location_data['longitude']:.4f})")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("🔄 Refresh Location", key="video_refresh_location"):
+                del st.session_state['auto_location']
+                st.rerun()
+        with col2:
+            override_video = st.checkbox("✏️ Edit location", key="video_edit_location")
+        
+        if override_video:
+            new_city = st.text_input("City:", value=location_data['city'], key="video_city")
+            new_country = st.text_input("Country:", value=location_data['country'], key="video_country")
+            new_coords = st.text_input("Coordinates:", value=f"{location_data['latitude']}, {location_data['longitude']}", key="video_coords")
+            if st.button("Update Location", key="video_update_location") and new_city and new_country and new_coords:
+                try:
+                    lat, lon = map(float, new_coords.split(','))
+                    st.session_state['auto_location'].update({
+                        "city": new_city, "country": new_country, 
+                        "latitude": lat, "longitude": lon,
+                        "detection_method": "manual_override"
+                    })
+                    st.success("✅ Location updated!")
+                    st.rerun()
+                except ValueError:
+                    st.error("❌ Invalid coordinates format. Use: latitude, longitude")
+    else:
+        st.error("❌ Location detection failed. Location is required for uploads.")
+        
     st.markdown("---")
     
     col1, col2 = st.columns([2, 1])
@@ -1006,40 +973,37 @@ elif data_type == "🎥 Video Data":
             tags = st.text_input("Tags (comma-separated):", placeholder="tag1, tag2, tag3")
             
             if st.button("Save Video"):
-                timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-                file_extension = uploaded_video.name.split('.')[-1]
-                filename = f"video_{timestamp}.{file_extension}"
-                filepath = f"data/video/{filename}"
-                
-                # Get file data
-                file_data = uploaded_video.getbuffer()
-                file_bytes = bytes(file_data)  # Convert memoryview to bytes
-                
-                # Save to file system (for backward compatibility)
-                with open(filepath, 'wb') as f:
-                    f.write(file_bytes)
-                
-                # Save to unified database (cloud or local)
-                additional_info = {
-                    "category": video_category,
-                    "duration": duration,
-                    "resolution": resolution,
-                    "description": description,
-                    "tags": [tag.strip() for tag in tags.split(',') if tag.strip()],
-                    "original_name": uploaded_video.name,
-                    "file_size": len(file_bytes)
-                }
-                
-                if CLOUD_DB_AVAILABLE:
-                    data_id = db_manager.save_data("video", filename, file_bytes, additional_info, location_data, uploaded_video)
-                    provider_info = db_manager.get_provider_info()
-                    st.success(f"🎥 Video saved successfully as {filename}")
-                    st.info(f"💾 Stored in: {provider_info['name']} (ID: {data_id})")
+                # Use the location from session state
+                location_data = st.session_state.get('auto_location')
+                if not location_data:
+                    st.error("❌ Location is required! Please ensure location is detected above.")
                 else:
-                    # Fallback to legacy JSON save
-                    save_metadata("video", filename, additional_info, location_data)
-                    st.success(f"🎥 Video saved successfully as {filename}")
-                    st.info("💾 Stored in local files")
+                    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                    file_extension = uploaded_video.name.split('.')[-1]
+                    filename = f"video_{timestamp}.{file_extension}"
+                    
+                    # Get file data
+                    file_data = uploaded_video.getbuffer()
+                    file_bytes = bytes(file_data)  # Convert memoryview to bytes
+                    
+                    # Save to cloud storage
+                    additional_info = {
+                        "category": video_category,
+                        "duration": duration,
+                        "resolution": resolution,
+                        "description": description,
+                        "tags": [tag.strip() for tag in tags.split(',') if tag.strip()],
+                        "original_name": uploaded_video.name,
+                        "file_size": len(file_bytes)
+                    }
+                    
+                    if CLOUD_DB_AVAILABLE:
+                        data_id = supabase_manager.save_data("video", filename, file_bytes, additional_info, location_data)
+                        st.success(f"🎥 Video saved successfully as {filename}")
+                        st.info(f"💾 Stored in: Supabase (ID: {data_id})")
+                        st.info(f"📍 Location: {location_data.get('city', 'Unknown')}, {location_data.get('country', 'Unknown')}")
+                    else:
+                        st.error("❌ Failed to save to cloud storage. Please check your Supabase connection.")
     
     with col2:
         st.subheader("Instructions:")
@@ -1057,8 +1021,70 @@ elif data_type == "🎥 Video Data":
 elif data_type == "🖼️ Image Data":
     st.header("🖼️ Image Data Collection")
     
-    # Location component
-    location_data = get_location_component()
+    # Mandatory Auto-Location Detection
+    st.subheader("📍 Location (Auto-Detected)")
+    
+    # Auto-fetch location on first load
+    if 'auto_location' not in st.session_state:
+        with st.spinner("🌐 Automatically detecting your location..."):
+            try:
+                import requests
+                response = requests.get('http://ip-api.com/json/', timeout=5)
+                if response.status_code == 200:
+                    ip_data = response.json()
+                    if ip_data.get('status') == 'success':
+                        location_data = {
+                            "city": ip_data.get("city", "Unknown"),
+                            "region": ip_data.get("regionName", "Unknown"), 
+                            "country": ip_data.get("country", "Unknown"),
+                            "latitude": ip_data.get("lat"),
+                            "longitude": ip_data.get("lon"),
+                            "detection_method": "ip_geolocation_auto"
+                        }
+                        st.session_state['auto_location'] = location_data
+                        st.success(f"✅ Location detected: {location_data['city']}, {location_data['country']}")
+                    else:
+                        st.error("❌ Location detection failed")
+                        st.session_state['auto_location'] = None
+                else:
+                    st.error("❌ Failed to connect to location service")
+                    st.session_state['auto_location'] = None
+            except Exception as e:
+                st.error(f"❌ Location detection error: {str(e)}")
+                st.session_state['auto_location'] = None
+    
+    # Display current location
+    if st.session_state.get('auto_location'):
+        location_data = st.session_state['auto_location']
+        st.info(f"📍 **Current Location**: {location_data['city']}, {location_data['country']} ({location_data['latitude']:.4f}, {location_data['longitude']:.4f})")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("🔄 Refresh Location", key="image_refresh_location"):
+                del st.session_state['auto_location']
+                st.rerun()
+        with col2:
+            override_image = st.checkbox("✏️ Edit location", key="image_edit_location")
+        
+        if override_image:
+            new_city = st.text_input("City:", value=location_data['city'], key="image_city")
+            new_country = st.text_input("Country:", value=location_data['country'], key="image_country")
+            new_coords = st.text_input("Coordinates:", value=f"{location_data['latitude']}, {location_data['longitude']}", key="image_coords")
+            if st.button("Update Location", key="image_update_location") and new_city and new_country and new_coords:
+                try:
+                    lat, lon = map(float, new_coords.split(','))
+                    st.session_state['auto_location'].update({
+                        "city": new_city, "country": new_country, 
+                        "latitude": lat, "longitude": lon,
+                        "detection_method": "manual_override"
+                    })
+                    st.success("✅ Location updated!")
+                    st.rerun()
+                except ValueError:
+                    st.error("❌ Invalid coordinates format. Use: latitude, longitude")
+    else:
+        st.error("❌ Location detection failed. Location is required for uploads.")
+        
     st.markdown("---")
     
     col1, col2 = st.columns([2, 1])
@@ -1081,49 +1107,45 @@ elif data_type == "🖼️ Image Data":
                     st.image(uploaded_image, caption=uploaded_image.name, use_column_width=True)
             
             if st.button("Save Images"):
-                saved_files = []
-                for uploaded_image in uploaded_images:
-                    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-                    file_extension = uploaded_image.name.split('.')[-1]
-                    filename = f"image_{timestamp}_{uploaded_image.name}"
-                    filepath = f"data/images/{filename}"
-                    
-                    # Get file data
-                    file_data = uploaded_image.getbuffer()
-                    file_bytes = bytes(file_data)  # Convert memoryview to bytes
-                    
-                    # Save to file system (for backward compatibility)
-                    with open(filepath, 'wb') as f:
-                        f.write(file_bytes)
-                    
-                    # Save to unified database (cloud or local)
-                    additional_info = {
-                        "category": image_category,
-                        "description": description,
-                        "tags": [tag.strip() for tag in tags.split(',') if tag.strip()],
-                        "original_name": uploaded_image.name,
-                        "file_size": len(file_bytes)
-                    }
+                # Use the location from session state
+                location_data = st.session_state.get('auto_location')
+                if not location_data:
+                    st.error("❌ Location is required! Please ensure location is detected above.")
+                else:
+                    saved_files = []
+                    for uploaded_image in uploaded_images:
+                        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                        file_extension = uploaded_image.name.split('.')[-1]
+                        filename = f"image_{timestamp}_{uploaded_image.name}"
+                        
+                        # Get file data
+                        file_data = uploaded_image.getbuffer()
+                        file_bytes = bytes(file_data)  # Convert memoryview to bytes
+                        
+                        # Save to cloud storage
+                        additional_info = {
+                            "category": image_category,
+                            "description": description,
+                            "tags": [tag.strip() for tag in tags.split(',') if tag.strip()],
+                            "original_name": uploaded_image.name,
+                            "file_size": len(file_bytes)
+                        }
+                        
+                        if CLOUD_DB_AVAILABLE:
+                            data_id = supabase_manager.save_data("image", filename, file_bytes, additional_info, location_data)
+                            saved_files.append((filename, data_id))
+                        else:
+                            st.error("❌ Failed to save to cloud storage. Please check your Supabase connection.")
+                            break
                     
                     if CLOUD_DB_AVAILABLE:
-                        data_id = db_manager.save_data("image", filename, file_bytes, additional_info, location_data, uploaded_image)
-                        saved_files.append((filename, data_id))
-                    else:
-                        # Fallback to legacy JSON save
-                        save_metadata("image", filename, additional_info, location_data)
-                        saved_files.append((filename, None))
-                
-                if CLOUD_DB_AVAILABLE:
-                    provider_info = db_manager.get_provider_info()
-                    st.success(f"🖼️ Successfully saved {len(saved_files)} images!")
-                    st.info(f"💾 Stored in: {provider_info['name']}")
-                    for filename, data_id in saved_files:
-                        st.write(f"• {filename} (ID: {data_id})")
-                else:
-                    st.success(f"🖼️ Successfully saved {len(saved_files)} images!")
-                    st.info("💾 Stored in local files")
-                    for filename, _ in saved_files:
-                        st.write(f"• {filename}")
+                        st.success(f"🖼️ Successfully saved {len(saved_files)} images!")
+                        st.info(f"💾 Stored in: Supabase")
+                        st.info(f"📍 Location: {location_data.get('city', 'Unknown')}, {location_data.get('country', 'Unknown')}")
+                        for filename, data_id in saved_files:
+                            st.write(f"• {filename} (ID: {data_id})")
+                        for filename, _ in saved_files:
+                            st.write(f"• {filename}")
     
     with col2:
         st.subheader("Instructions:")
@@ -1139,28 +1161,24 @@ elif data_type == "🖼️ Image Data":
 
 # View Collected Data
 elif data_type == "📈 View Collected Data":
-    st.header("📈 Collected Data Overview")
+    st.header("🌿 Flora and Fauna Data Overview")
     
     # Show current database provider
     if CLOUD_DB_AVAILABLE:
-        provider_info = db_manager.get_provider_info()
         col1, col2, col3 = st.columns([2, 1, 1])
         
         with col1:
-            if provider_info['type'] == 'sqlite':
-                st.info(f"📁 **Current Database**: {provider_info['name']}")
-            else:
-                st.success(f"🌐 **Current Database**: {provider_info['name']}")
+            st.success(f"🌐 **Current Database**: Supabase")
         
         with col2:
-            st.metric("📊 Provider", provider_info['type'].upper())
+            st.metric("📊 Provider", "SUPABASE")
         
         with col3:
-            st.metric("🔗 Status", provider_info['status'].title())
+            st.metric("🔗 Status", "Connected")
     
     # Get database statistics
     if CLOUD_DB_AVAILABLE:
-        db_stats = db_manager.get_statistics()
+        db_stats = supabase_manager.get_statistics()
         
         # Summary statistics
         col1, col2, col3, col4 = st.columns(4)
@@ -1179,18 +1197,19 @@ elif data_type == "📈 View Collected Data":
         
         # Load and display data
         if db_stats['total_records'] > 0:
-            df = db_manager.get_all_data()
+            df = supabase_manager.get_all_data()
             
             st.markdown("---")
             st.subheader("🗄️ Database Records")
             
             # Filter options
             if not df.empty:
-                data_types = ['All'] + list(df['data_type'].unique())
+                # Use correct column name (entry_type instead of data_type)
+                data_types = ['All'] + list(df['entry_type'].unique())
                 selected_type = st.selectbox("Filter by data type:", data_types)
                 
                 if selected_type != 'All':
-                    filtered_df = df[df['data_type'] == selected_type]
+                    filtered_df = df[df['entry_type'] == selected_type]
                 else:
                     filtered_df = df
                 
@@ -1206,13 +1225,18 @@ elif data_type == "📈 View Collected Data":
                             col1, col2, col3 = st.columns([2, 1, 1])
                             
                             with col1:
-                                st.subheader(f"{row['data_type'].title()}: {row['filename']}")
-                                if pd.notna(row.get('description')):
-                                    st.write(f"📝 {row['description']}")
-                                if pd.notna(row.get('category')):
-                                    st.write(f"🏷️ Category: {row['category']}")
-                                if pd.notna(row.get('tags')):
-                                    st.write(f"🔖 Tags: {row['tags']}")
+                                st.subheader(f"{row['entry_type'].title()}: {row['title']}")
+                                if pd.notna(row.get('content')):
+                                    st.write(f"📝 {row['content']}")
+                                # Extract metadata for additional info
+                                metadata = row.get('metadata', {})
+                                if isinstance(metadata, dict):
+                                    if metadata.get('category'):
+                                        st.write(f"🏷️ Category: {metadata['category']}")
+                                    if metadata.get('description'):
+                                        st.write(f"📄 Description: {metadata['description']}")
+                                    if metadata.get('tags'):
+                                        st.write(f"🔖 Tags: {metadata['tags']}")
                             
                             with col2:
                                 if pd.notna(row.get('timestamp')):
@@ -1221,18 +1245,20 @@ elif data_type == "📈 View Collected Data":
                                         st.write(f"📅 {timestamp.strftime('%Y-%m-%d %H:%M')}")
                                     except:
                                         st.write(f"📅 {row['timestamp']}")
-                                if pd.notna(row.get('city')):
-                                    st.write(f"📍 {row['city']}, {row.get('country', '')}")
-                                if pd.notna(row.get('file_size')):
+                                if pd.notna(row.get('location_name')):
+                                    st.write(f"📍 {row['location_name']}")
+                                # Extract file size from metadata
+                                metadata = row.get('metadata', {})
+                                if isinstance(metadata, dict) and metadata.get('file_size'):
                                     try:
-                                        size_mb = float(row['file_size']) / (1024 * 1024)
+                                        size_mb = float(metadata['file_size']) / (1024 * 1024)
                                         if size_mb < 1:
-                                            size_kb = float(row['file_size']) / 1024
+                                            size_kb = float(metadata['file_size']) / 1024
                                             st.write(f"📦 Size: {size_kb:.1f} KB")
                                         else:
                                             st.write(f"📦 Size: {size_mb:.1f} MB")
                                     except:
-                                        st.write(f"📦 Size: {row['file_size']}")
+                                        st.write(f"📦 Size: {metadata['file_size']}")
                             
                             with col3:
                                 # Preview/View button
@@ -1240,7 +1266,7 @@ elif data_type == "📈 View Collected Data":
                                     st.session_state[f"show_preview_{idx}"] = True
                                 
                                 # Storage info
-                                if pd.notna(row.get('file_data')) and isinstance(row['file_data'], str) and row['file_data'].startswith('http'):
+                                if pd.notna(row.get('file_url')) and isinstance(row['file_url'], str) and row['file_url'].startswith('http'):
                                     st.success("☁️ Cloud Stored")
                                 else:
                                     st.info("💾 Local File")
@@ -1272,122 +1298,32 @@ elif data_type == "📈 View Collected Data":
                     
                     with col3:
                         # Provider-specific info
-                        provider_info = db_manager.get_provider_info()
-                        st.write(f"**{provider_info['name']}**")
-                        if provider_info['type'] == 'sqlite':
-                            if os.path.exists(provider_info['location']):
-                                db_size_bytes = os.path.getsize(provider_info['location'])
-                                st.write(f"Size: {db_size_bytes / 1024:.1f} KB")
-                                st.write(f"Path: `{provider_info['location']}`")
-                        else:
-                            st.write(f"Type: {provider_info['description']}")
-                            st.write(f"Location: {provider_info['location']}")
+                        st.write(f"**Supabase**")
+                        st.write("Cloud Storage: ✅")
+                        st.write("Real-time sync: ✅")
                 else:
                     st.info("No data found for the selected filter.")
             else:
                 st.info("No data structure available to display.")
         else:
             st.info("🗄️ No data in database yet. Start collecting data to see it here!")
-            
-            # Show setup guide if using fallback
-            provider_info = db_manager.get_provider_info()
-            if provider_info['type'] == 'sqlite':
-                st.warning("""
-                🌐 **Want Cloud Storage?**
-                
-                You're currently using local SQLite storage. For persistent cloud storage:
-                1. Set up a cloud database (Supabase, MongoDB Atlas, etc.)
-                2. Add credentials to Streamlit secrets
-                3. Select your cloud database in the sidebar
-                
-                Click "Database Setup Guide" in the sidebar for detailed instructions.
-                """)
     
     else:
-        # Fallback to legacy metadata view
-        st.warning("⚠️ Cloud database features not available. Showing legacy file-based view.")
-        
-        metadata_file = "data/metadata.json"
-        if os.path.exists(metadata_file):
-            with open(metadata_file, 'r') as f:
-                all_metadata = json.load(f)
-            
-            if all_metadata:
-                # Convert to DataFrame for better display
-                df = pd.DataFrame(all_metadata)
-                
-                # Summary statistics
-                col1, col2, col3, col4 = st.columns(4)
-                
-                with col1:
-                    text_count = len([m for m in all_metadata if m['data_type'] == 'text'])
-                    st.metric("📝 Text Files", text_count)
-                
-                with col2:
-                    audio_count = len([m for m in all_metadata if m['data_type'] == 'audio'])
-                    st.metric("🎵 Audio Files", audio_count)
-                
-                with col3:
-                    video_count = len([m for m in all_metadata if m['data_type'] == 'video'])
-                    st.metric("🎥 Video Files", video_count)
-                
-                with col4:
-                    image_count = len([m for m in all_metadata if m['data_type'] == 'image'])
-                    st.metric("🖼️ Image Files", image_count)
-                
-                st.markdown("---")
-                st.subheader("� Legacy Data Records")
-                
-                # Filter options
-                data_type_filter = st.selectbox("Filter by data type:", ["All", "text", "audio", "video", "image"])
-                
-                if data_type_filter != "All":
-                    filtered_df = df[df['data_type'] == data_type_filter]
-                else:
-                    filtered_df = df
-                
-                # Display the data
-                if not filtered_df.empty:
-                    st.dataframe(filtered_df, use_container_width=True)
-                    
-                    # Download option
-                    csv = filtered_df.to_csv(index=False)
-                    st.download_button(
-                        label="� Download Legacy Data as CSV",
-                        data=csv,
-                        file_name=f"legacy_data_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                        mime="text/csv"
-                    )
-                else:
-                    st.info("No data found for the selected filter.")
-                    
-                st.warning("""
-                **⚠️ Important Notes:**
-                - This is legacy file-based storage
-                - Data may be lost when app restarts in cloud deployments
-                - Consider setting up cloud database for persistence
-                """)
-            else:
-                st.info("No legacy data has been collected yet.")
-        else:
-            st.info("No data has been collected yet. Start by collecting some data using the other tabs!")
+        st.error("❌ Cloud database not available. Please check your Supabase connection.")
 
 # Footer
 st.markdown("---")
 if CLOUD_DB_AVAILABLE:
-    provider_info = db_manager.get_provider_info()
     st.markdown(f"""
     <div style="text-align: center; color: #666;">
-        <p>📊 Multi-Media Data Collection Application | Built with Streamlit</p>
-        <p>🌐 Current Database: {provider_info['name']} | ✅ Cloud Storage Ready</p>
-        <p>💾 Data stored in: {provider_info['description']}</p>
+        <p>🌿 Flora and Fauna Data Collection | Built with Streamlit</p>
+        <p>💾 Database: Supabase (Cloud) | 🌐 Real-time sync enabled</p>
     </div>
     """, unsafe_allow_html=True)
 else:
     st.markdown("""
     <div style="text-align: center; color: #666;">
-        <p>📊 Multi-Media Data Collection Application | Built with Streamlit</p>
-        <p>📁 Data stored locally in the 'data' directory</p>
-        <p>🌐 <em>Install cloud database dependencies for persistent storage</em></p>
+        <p>🌿 Flora and Fauna Data Collection | Built with Streamlit</p>
+        <p>⚠️ Cloud database not available</p>
     </div>
     """, unsafe_allow_html=True)
