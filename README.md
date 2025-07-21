@@ -1,7 +1,7 @@
-<<<<<<< HEAD
+
 # flora
 
-
+## [flora-fauna.streamlit.app](https://flora-fauna.streamlit.app/)
 
 ## Getting started
 
