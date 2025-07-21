@@ -204,43 +204,133 @@ def display_file_preview(row, idx):
 # Location Component
 def get_auto_location():
     """Get location automatically using IP geolocation (mandatory for all uploads)"""
-    if 'auto_location' not in st.session_state:
-        with st.spinner("🌐 Automatically detecting your location..."):
+    import time
+    current_time = time.time()
+    
+    # Check if we have recent location data (less than 5 minutes old)
+    if ('auto_location' in st.session_state and 
+        'timestamp' in st.session_state.get('auto_location', {}) and
+        current_time - st.session_state['auto_location']['timestamp'] < 300):  # 5 minutes
+        location_data = st.session_state['auto_location']
+    else:
+        # Get fresh location data
+        with st.spinner("🌐 Detecting your current location..."):
+            location_data = None
             try:
                 import requests
-                response = requests.get('http://ip-api.com/json/', timeout=5)
-                if response.status_code == 200:
-                    ip_data = response.json()
-                    if ip_data.get('status') == 'success':
-                        location_data = {
-                            "city": ip_data.get("city", "Unknown"),
-                            "region": ip_data.get("regionName", "Unknown"), 
-                            "country": ip_data.get("country", "Unknown"),
-                            "latitude": ip_data.get("lat"),
-                            "longitude": ip_data.get("lon"),
-                            "detection_method": "ip_geolocation_auto"
-                        }
-                        st.session_state['auto_location'] = location_data
-                        st.success(f"✅ Location detected: {location_data['city']}, {location_data['country']}")
-                    else:
-                        st.error("❌ Location detection failed")
-                        st.session_state['auto_location'] = None
+                
+                # Try multiple IP geolocation services for better accuracy
+                services = [
+                    'http://ip-api.com/json/',
+                    'https://ipapi.co/json/',
+                    'https://ipinfo.io/json'
+                ]
+                
+                for service_url in services:
+                    try:
+                        response = requests.get(service_url, timeout=3)
+                        if response.status_code == 200:
+                            ip_data = response.json()
+                            
+                            if service_url.startswith('http://ip-api.com'):
+                                if ip_data.get('status') == 'success':
+                                    location_data = {
+                                        "city": ip_data.get("city", "Unknown"),
+                                        "region": ip_data.get("regionName", "Unknown"), 
+                                        "country": ip_data.get("country", "Unknown"),
+                                        "latitude": ip_data.get("lat"),
+                                        "longitude": ip_data.get("lon"),
+                                        "detection_method": "ip_geolocation_auto",
+                                        "timestamp": current_time,
+                                        "service": "ip-api.com"
+                                    }
+                                    break
+                            elif service_url.startswith('https://ipapi.co'):
+                                if ip_data.get('city'):
+                                    location_data = {
+                                        "city": ip_data.get("city", "Unknown"),
+                                        "region": ip_data.get("region", "Unknown"), 
+                                        "country": ip_data.get("country_name", "Unknown"),
+                                        "latitude": ip_data.get("latitude"),
+                                        "longitude": ip_data.get("longitude"),
+                                        "detection_method": "ip_geolocation_auto",
+                                        "timestamp": current_time,
+                                        "service": "ipapi.co"
+                                    }
+                                    break
+                            elif service_url.startswith('https://ipinfo.io'):
+                                if ip_data.get('city'):
+                                    location_data = {
+                                        "city": ip_data.get("city", "Unknown"),
+                                        "region": ip_data.get("region", "Unknown"), 
+                                        "country": ip_data.get("country", "Unknown"),
+                                        "latitude": float(ip_data.get("loc", "0,0").split(',')[0]) if ip_data.get("loc") else None,
+                                        "longitude": float(ip_data.get("loc", "0,0").split(',')[1]) if ip_data.get("loc") else None,
+                                        "detection_method": "ip_geolocation_auto",
+                                        "timestamp": current_time,
+                                        "service": "ipinfo.io"
+                                    }
+                                    break
+                    except Exception:
+                        continue
+                
+                if location_data:
+                    st.session_state['auto_location'] = location_data
+                    st.success(f"✅ Location detected: {location_data['city']}, {location_data['country']} (via {location_data['service']})")
                 else:
-                    st.error("❌ Failed to connect to location service")
-                    st.session_state['auto_location'] = None
+                    st.error("❌ All location services failed")
+                    # Use fallback location
+                    location_data = {
+                        "city": "Unknown Location",
+                        "region": "Unknown", 
+                        "country": "Unknown",
+                        "latitude": None,
+                        "longitude": None,
+                        "detection_method": "fallback",
+                        "timestamp": current_time,
+                        "service": "fallback"
+                    }
+                    st.session_state['auto_location'] = location_data
+                    
             except Exception as e:
                 st.error(f"❌ Location detection error: {str(e)}")
-                st.session_state['auto_location'] = None
+                # Use fallback location
+                location_data = {
+                    "city": "Unknown Location",
+                    "region": "Unknown", 
+                    "country": "Unknown",
+                    "latitude": None,
+                    "longitude": None,
+                    "detection_method": "error_fallback",
+                    "timestamp": current_time,
+                    "service": "fallback"
+                }
+                st.session_state['auto_location'] = location_data
     
     # Display current location
     if st.session_state.get('auto_location'):
         location_data = st.session_state['auto_location']
-        st.info(f"📍 **Current Location**: {location_data['city']}, {location_data['country']} ({location_data['latitude']:.4f}, {location_data['longitude']:.4f})")
+        
+        # Show coordinates only if they exist
+        if location_data.get('latitude') and location_data.get('longitude'):
+            coords_text = f" ({location_data['latitude']:.4f}, {location_data['longitude']:.4f})"
+        else:
+            coords_text = ""
+            
+        st.info(f"📍 **Current Location**: {location_data['city']}, {location_data['country']}{coords_text}")
+        
+        # Show service used and age of data
+        if 'timestamp' in location_data:
+            import time
+            age_minutes = (time.time() - location_data['timestamp']) / 60
+            st.caption(f"🕒 Detected {age_minutes:.0f} minutes ago via {location_data.get('service', 'unknown service')}")
         
         col1, col2 = st.columns(2)
         with col1:
-            if st.button("🔄 Refresh Location"):
-                del st.session_state['auto_location']
+            if st.button("🔄 Refresh Location", help="Force detect current location"):
+                # Clear cached location to force refresh
+                if 'auto_location' in st.session_state:
+                    del st.session_state['auto_location']
                 st.rerun()
         with col2:
             override = st.checkbox("✏️ Edit location")
