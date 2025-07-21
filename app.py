@@ -833,11 +833,35 @@ elif data_type == "📈 View Collected Data":
         
         # Get filtered data
         try:
-            data_df = supabase_manager.get_all_data(
-                data_type=filter_type.lower() if filter_type != "All" else None,
-                days={"Today": 1, "Last 7 days": 7, "Last 30 days": 30}.get(filter_days),
-                search_term=search_term if search_term else None
-            )
+            # Get all data first
+            data_df = supabase_manager.get_all_data()
+            
+            # Apply client-side filtering if data exists
+            if data_df is not None and len(data_df) > 0:
+                
+                # Filter by data type
+                if filter_type != "All":
+                    data_df = data_df[data_df['entry_type'] == filter_type.lower()]
+                
+                # Filter by time range
+                if filter_days != "All Time":
+                    try:
+                        # Convert timestamp to datetime if it's a string
+                        if 'timestamp' in data_df.columns:
+                            data_df['timestamp_dt'] = pd.to_datetime(data_df['timestamp'])
+                            cutoff_date = datetime.datetime.now() - datetime.timedelta(days={"Today": 1, "Last 7 days": 7, "Last 30 days": 30}.get(filter_days, 0))
+                            data_df = data_df[data_df['timestamp_dt'] >= cutoff_date]
+                    except Exception:
+                        pass  # Skip time filtering if there's an issue with dates
+                
+                # Filter by search term
+                if search_term:
+                    search_columns = ['title', 'description', 'content']
+                    mask = False
+                    for col in search_columns:
+                        if col in data_df.columns:
+                            mask |= data_df[col].astype(str).str.contains(search_term, case=False, na=False)
+                    data_df = data_df[mask]
             
             if data_df is not None and len(data_df) > 0:
                 st.subheader(f"📊 Found {len(data_df)} records")
