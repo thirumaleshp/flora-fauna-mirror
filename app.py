@@ -286,15 +286,46 @@ def get_auto_location():
             st.session_state['auto_location'].get('detection_method') == 'ip_geolocation'):  # 5 minutes
             location_data = st.session_state['auto_location']
         else:
-            # Get fresh location data using IP geolocation
+            # Get fresh location data using multiple IP geolocation services
             with st.spinner("🌐 Detecting your current location from IP..."):
                 location_data = None
-                try:
-                    # Try ipapi.co first (more reliable)
-                    response = requests.get('https://ipapi.co/json/', timeout=5)
-                    if response.status_code == 200:
-                        data = response.json()
-                        location_data = {
+                
+                # List of location services to try (in order of preference)
+                location_services = [
+                    {
+                        "name": "ipinfo.io",
+                        "url": "https://ipinfo.io/json",
+                        "parser": lambda data: {
+                            "city": data.get("city", "Unknown"),
+                            "region": data.get("region", "Unknown"), 
+                            "country": data.get("country", "Unknown"),
+                            "country_code": data.get("country", ""),
+                            "latitude": float(data.get("loc", "0,0").split(",")[0]) if data.get("loc") else None,
+                            "longitude": float(data.get("loc", "0,0").split(",")[1]) if data.get("loc") else None,
+                            "timezone": data.get("timezone", "Unknown"),
+                            "isp": data.get("org", "Unknown"),
+                            "ip_address": data.get("ip", "Unknown"),
+                        }
+                    },
+                    {
+                        "name": "geolocation-db.com",
+                        "url": "https://geolocation-db.com/json/",
+                        "parser": lambda data: {
+                            "city": data.get("city", "Unknown"),
+                            "region": data.get("state", "Unknown"),
+                            "country": data.get("country_name", "Unknown"),
+                            "country_code": data.get("country_code", ""),
+                            "latitude": data.get("latitude"),
+                            "longitude": data.get("longitude"),
+                            "timezone": "Unknown",
+                            "isp": "Unknown",
+                            "ip_address": data.get("IPv4", "Unknown"),
+                        }
+                    },
+                    {
+                        "name": "ipapi.co",
+                        "url": "https://ipapi.co/json/",
+                        "parser": lambda data: {
                             "city": data.get("city", "Unknown"),
                             "region": data.get("region", "Unknown"),
                             "country": data.get("country_name", "Unknown"),
@@ -304,37 +335,61 @@ def get_auto_location():
                             "timezone": data.get("timezone", "Unknown"),
                             "isp": data.get("org", "Unknown"),
                             "ip_address": data.get("ip", "Unknown"),
-                            "detection_method": "ip_geolocation",
-                            "timestamp": current_time,
-                            "service": "ipapi.co"
                         }
-                        st.session_state['auto_location'] = location_data
-                        
-                except Exception:
-                    # Fallback to ip-api.com
+                    },
+                    {
+                        "name": "ip-api.com",
+                        "url": "http://ip-api.com/json/",
+                        "parser": lambda data: {
+                            "city": data.get("city", "Unknown"),
+                            "region": data.get("regionName", "Unknown"),
+                            "country": data.get("country", "Unknown"),
+                            "country_code": data.get("countryCode", ""),
+                            "latitude": data.get("lat"),
+                            "longitude": data.get("lon"),
+                            "timezone": data.get("timezone", "Unknown"),
+                            "isp": data.get("isp", "Unknown"),
+                            "ip_address": data.get("query", "Unknown"),
+                        }
+                    }
+                ]
+                
+                # Try each service until one works
+                for service in location_services:
                     try:
-                        response = requests.get('http://ip-api.com/json/', timeout=5)
+                        response = requests.get(service["url"], timeout=10)
                         if response.status_code == 200:
                             data = response.json()
-                            location_data = {
-                                "city": data.get("city", "Unknown"),
-                                "region": data.get("regionName", "Unknown"),
-                                "country": data.get("country", "Unknown"),
-                                "country_code": data.get("countryCode", ""),
-                                "latitude": data.get("lat"),
-                                "longitude": data.get("lon"),
-                                "timezone": data.get("timezone", "Unknown"),
-                                "isp": data.get("isp", "Unknown"),
-                                "detection_method": "ip_geolocation",
-                                "timestamp": current_time,
-                                "service": "ip-api.com"
-                            }
-                            st.session_state['auto_location'] = location_data
-                    except Exception as e2:
-                        st.error(f"❌ Location detection failed: {str(e2)}")
-                        location_data = None
+                            
+                            # Skip if the response indicates an error
+                            if data.get("error") or data.get("status") == "fail":
+                                continue
+                            
+                            parsed_data = service["parser"](data)
+                            
+                            # Validate that we got meaningful location data
+                            if (parsed_data.get("city") and parsed_data.get("city") != "Unknown" and
+                                parsed_data.get("country") and parsed_data.get("country") != "Unknown"):
+                                
+                                location_data = {
+                                    **parsed_data,
+                                    "detection_method": "ip_geolocation",
+                                    "timestamp": current_time,
+                                    "service": service["name"]
+                                }
+                                st.session_state['auto_location'] = location_data
+                                break
+                    except Exception as e:
+                        continue  # Try next service
+                
+                # If all services failed, show error
+                if not location_data:
+                    st.error("❌ All location detection services failed. Please use manual coordinates.")
+                    st.warning("⚠️ This might be due to network restrictions or proxy/VPN usage.")
+                    st.info("💡 Try switching to manual coordinates for accurate location.")
+                    return None
     
-    # Simple location status display
+    # Enhanced location status display with accuracy warnings
     if st.session_state.get('auto_location'):
         location_data = st.session_state['auto_location']
         
@@ -343,15 +398,53 @@ def get_auto_location():
         country = location_data.get('country', 'Unknown')
         lat = location_data.get('latitude')
         lon = location_data.get('longitude')
+        service = location_data.get('service', 'unknown')
+        
+        # Check for common server/CDN locations that might be inaccurate
+        server_locations = [
+            ('The Dalles', 'United States'),
+            ('Ashburn', 'United States'),
+            ('Council Bluffs', 'United States'),
+            ('Singapore', 'Singapore'),
+            ('Frankfurt', 'Germany'),
+            ('Dublin', 'Ireland')
+        ]
+        
+        is_likely_server = any(city == srv_city and country == srv_country 
+                              for srv_city, srv_country in server_locations)
         
         if lat and lon:
-            st.success(f"✅ Location detected: {city}, {country} ({lat:.4f}, {lon:.4f})")
+            location_text = f"✅ Location detected: {city}, {country} ({lat:.4f}, {lon:.4f})"
         else:
-            st.success(f"✅ Location detected: {city}, {country}")
+            location_text = f"✅ Location detected: {city}, {country}"
+        
+        if is_likely_server:
+            st.warning(f"⚠️ {location_text}")
+            st.error("🚨 **Location may be inaccurate!** This appears to be a server/CDN location, not your actual location.")
+            st.info("💡 For accurate location data, please switch to **manual coordinates** below.")
+            
+            # Add a quick button to switch to manual
+            if st.button("🔄 Switch to Manual Coordinates", key="switch_to_manual"):
+                st.rerun()
+        else:
+            st.success(location_text)
+            st.caption(f"🔍 Detected via {service} • Click 'Switch Method' if incorrect")
         
         return location_data
     else:
         st.warning("📍 Please set your location above")
+        
+        # Add quick action buttons when no location is set
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("🔄 Try IP Detection", key="retry_ip"):
+                if 'auto_location' in st.session_state:
+                    del st.session_state['auto_location']
+                st.rerun()
+        with col2:
+            if st.button("📍 Use Manual Entry", key="use_manual"):
+                st.info("👆 Select 'Enter coordinates manually' above")
+        
         return None
 
 def validate_location_before_upload():
