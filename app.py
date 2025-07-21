@@ -557,7 +557,31 @@ def get_auto_location():
     else:
         st.error("❌ Location detection failed. Location is required for uploads.")
         return None
-        return None
+
+def validate_location_before_upload():
+    """Validate that location is set before allowing any data upload"""
+    location_data = st.session_state.get('auto_location')
+    
+    if not location_data:
+        st.error("🚫 **Location Required**: Please set your location before uploading any data.")
+        st.info("👆 Use the location detection above or set your location manually.")
+        return False
+    
+    if (location_data.get('detection_method') == 'pending' or 
+        location_data.get('city') == 'Unknown Location' or
+        not location_data.get('city')):
+        st.error("🚫 **Valid Location Required**: Please provide a valid location before uploading.")
+        st.info("👆 Use device location detection or manual entry above.")
+        return False
+    
+    return True
+
+def require_location_wrapper(upload_function):
+    """Wrapper function to enforce location requirement for uploads"""
+    if not validate_location_before_upload():
+        st.warning("⚠️ **Upload blocked**: Location must be set first.")
+        return False
+    return upload_function()
 
 def get_location_component():
     """Create a location input component with automatic detection"""
@@ -841,13 +865,13 @@ if data_type == "📝 Text Data":
             category = st.selectbox("Category:", ["General", "Research", "Survey", "Feedback", "Other"])
             
             if st.button("Save Text") and text_input:
-                # Check if location is available
-                if not location_data:
-                    st.error("❌ Location is required! Please set your location above before saving.")
-                else:
-                    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-                    filename = f"text_{timestamp}.txt"
-                    filepath = f"data/text/{filename}"
+                # Validate location is set before saving
+                if not validate_location_before_upload():
+                    return  # Stop execution if location is not valid
+                
+                timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                filename = f"text_{timestamp}.txt"
+                filepath = f"data/text/{filename}"
                     
                     # Save to file system (for backward compatibility)
                     with open(filepath, 'w') as f:
@@ -877,36 +901,36 @@ if data_type == "📝 Text Data":
             category = st.selectbox("Category:", ["General", "Research", "Survey", "Feedback", "Other"], key="multiline_category")
             
             if st.button("Save Multi-line Text") and text_area:
-                # Check if location is available
-                if not location_data:
-                    st.error("❌ Location is required! Please set your location above before saving.")
+                # Validate location is set before saving
+                if not validate_location_before_upload():
+                    return  # Stop execution if location is not valid
+                
+                timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                filename = f"multitext_{timestamp}.txt"
+                filepath = f"data/text/{filename}"
+                
+                # Save to file system (for backward compatibility)
+                with open(filepath, 'w') as f:
+                    f.write(f"Category: {category}\n")
+                    f.write(f"Timestamp: {timestamp}\n")
+                    f.write(f"Content:\n{text_area}\n")
+                
+                # Save to unified database (cloud or local)
+                file_data = text_area.encode('utf-8')
+                additional_info = {
+                    "category": category, 
+                    "method": "multi_line",
+                    "file_size": len(file_data),
+                    "content": text_area
+                }
+                
+                if CLOUD_DB_AVAILABLE:
+                    data_id = supabase_manager.save_data("text", filename, file_data, additional_info, location_data)
+                    st.success(f"✅ Multi-line text saved successfully as {filename}")
+                    st.info(f"💾 Stored in: Supabase (ID: {data_id})")
+                    st.info(f"📍 Location: {location_data['city']}, {location_data['country']}")
                 else:
-                    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-                    filename = f"multitext_{timestamp}.txt"
-                    filepath = f"data/text/{filename}"
-                    
-                    # Save to file system (for backward compatibility)
-                    with open(filepath, 'w') as f:
-                        f.write(f"Category: {category}\n")
-                        f.write(f"Timestamp: {timestamp}\n")
-                        f.write(f"Content:\n{text_area}\n")
-                    
-                    # Save to unified database (cloud or local)
-                    file_data = text_area.encode('utf-8')
-                    additional_info = {
-                        "category": category, 
-                        "method": "multi_line",
-                        "file_size": len(file_data),
-                        "content": text_area
-                    }
-                    
-                    if CLOUD_DB_AVAILABLE:
-                        data_id = supabase_manager.save_data("text", filename, file_data, additional_info, location_data)
-                        st.success(f"✅ Multi-line text saved successfully as {filename}")
-                        st.info(f"💾 Stored in: Supabase (ID: {data_id})")
-                        st.info(f"📍 Location: {location_data['city']}, {location_data['country']}")
-                    else:
-                        st.error("❌ Failed to save to cloud storage. Please check your Supabase connection.")
+                    st.error("❌ Failed to save to cloud storage. Please check your Supabase connection.")
         
         else:  # CSV Upload
             uploaded_file = st.file_uploader("Upload CSV file", type=['csv'])
