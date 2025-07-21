@@ -22,10 +22,10 @@ test_app:
     - pip install -r requirements.txt
   script:
     - python -m py_compile app.py
-    - python -c "import streamlit; print('Streamlit imported successfully')"
-    - python -c "import pandas; print('Pandas imported successfully')"
-    - python -c "import requests; print('Requests imported successfully')"
-    - echo "All dependencies and syntax check passed"
+    - python -c "import streamlit; print('✅ Streamlit imported successfully')"
+    - python -c "import pandas; print('✅ Pandas imported successfully')"
+    - python -c "import requests; print('✅ Requests imported successfully')"
+    - echo "✅ All dependencies and syntax check passed"
   only:
     - main
     - merge_requests
@@ -59,7 +59,7 @@ pages:
     - mkdir public
     - cp deployment.html public/index.html
     - cp -r .streamlit public/
-    - echo "Deployment guide available at GitLab Pages"
+    - echo "🚀 Deployment guide available at GitLab Pages"
   artifacts:
     paths:
       - public
@@ -99,20 +99,25 @@ deploy_railway:
     name: railway
     url: https://$RAILWAY_DOMAIN
 
-# Deployment information
+# Manual deployment helper
 deployment_info:
   stage: deploy
   image: alpine:latest
   script:
     - echo "Flora and Fauna Data Collection App - Deployment Information"
+    - echo "=================================================="
     - echo "Docker Image available at $CI_REGISTRY_IMAGE:latest"
     - echo "GitLab Pages at https://$CI_PROJECT_NAMESPACE.gitlab.io/$CI_PROJECT_NAME"
     - echo "Repository at $CI_PROJECT_URL"
     - echo "Available deployment options:"
-    - echo "- Docker deployment"
-    - echo "- GitLab Pages deployment guide"
-    - echo "- Heroku manual deployment"
-    - echo "- Railway manual deployment"
-    - echo "- Streamlit Cloud via GitLab integration"
+    - echo "  - Docker deployment"
+    - echo "  - GitLab Pages deployment guide"
+    - echo "  - Heroku manual deployment"
+    - echo "  - Railway manual deployment"
+    - echo "  - Streamlit Cloud via GitLab integration"
+    - echo "DEPLOYMENT_INFO=complete" > deploy.env
+  artifacts:
+    reports:
+      dotenv: deploy.env
   only:
     - main
