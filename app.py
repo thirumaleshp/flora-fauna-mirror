@@ -337,7 +337,18 @@ def get_auto_location():
     # Simple location status display
     if st.session_state.get('auto_location'):
         location_data = st.session_state['auto_location']
-        st.success("✅ Location detected")
+        
+        # Show basic location info
+        city = location_data.get('city', 'Unknown')
+        country = location_data.get('country', 'Unknown')
+        lat = location_data.get('latitude')
+        lon = location_data.get('longitude')
+        
+        if lat and lon:
+            st.success(f"✅ Location detected: {city}, {country} ({lat:.4f}, {lon:.4f})")
+        else:
+            st.success(f"✅ Location detected: {city}, {country}")
+        
         return location_data
     else:
         st.warning("📍 Please set your location above")
