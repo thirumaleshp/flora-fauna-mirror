@@ -13,8 +13,6 @@ cache:
 test_app:
   stage: test
   image: python:3.11-slim
-  tags:
-    - saas-linux-small-amd64
   script:
     - python -m pip install --upgrade pip
     - pip install -r requirements.txt
@@ -26,6 +24,3 @@ test_app:
     - python -c "import requests; print('Requests imported successfully')"
     - python -c "from supabase import create_client; print('Supabase client imported successfully')"
     - echo "All tests passed - app is ready for deployment"
-  rules:
-    - if: $CI_COMMIT_BRANCH == "main"
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"

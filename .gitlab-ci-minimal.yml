@@ -1,0 +1,12 @@
+# Minimal CI for Flora & Fauna - File Validation Only
+image: alpine:latest
+
+test_files:
+  script:
+    - echo "🌿 Flora & Fauna Data Collection App"
+    - echo "✅ Checking if files exist..."
+    - ls -la
+    - echo "✅ app.py exists:" && ls app.py
+    - echo "✅ requirements.txt exists:" && ls requirements.txt
+    - echo "✅ Basic validation complete!"
+    - echo "📋 Ready for manual deployment to Streamlit Cloud"
