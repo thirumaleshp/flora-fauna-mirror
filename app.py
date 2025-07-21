@@ -216,10 +216,8 @@ def get_auto_location():
                             "city": ip_data.get("city", "Unknown"),
                             "region": ip_data.get("regionName", "Unknown"), 
                             "country": ip_data.get("country", "Unknown"),
-                            "coordinates": {
-                                "latitude": ip_data.get("lat"),
-                                "longitude": ip_data.get("lon")
-                            },
+                            "latitude": ip_data.get("lat"),
+                            "longitude": ip_data.get("lon"),
                             "detection_method": "ip_geolocation_auto"
                         }
                         st.session_state['auto_location'] = location_data
@@ -237,7 +235,7 @@ def get_auto_location():
     # Display current location
     if st.session_state.get('auto_location'):
         location_data = st.session_state['auto_location']
-        st.info(f"📍 **Current Location**: {location_data['city']}, {location_data['country']} ({location_data['coordinates']['latitude']:.4f}, {location_data['coordinates']['longitude']:.4f})")
+        st.info(f"📍 **Current Location**: {location_data['city']}, {location_data['country']} ({location_data['latitude']:.4f}, {location_data['longitude']:.4f})")
         
         col1, col2 = st.columns(2)
         with col1:
@@ -250,13 +248,13 @@ def get_auto_location():
         if override:
             new_city = st.text_input("City:", value=location_data['city'])
             new_country = st.text_input("Country:", value=location_data['country'])
-            new_coords = st.text_input("Coordinates:", value=f"{location_data['coordinates']['latitude']}, {location_data['coordinates']['longitude']}")
+            new_coords = st.text_input("Coordinates:", value=f"{location_data['latitude']}, {location_data['longitude']}")
             if st.button("Update") and new_city and new_country and new_coords:
                 try:
                     lat, lon = map(float, new_coords.split(','))
                     st.session_state['auto_location'].update({
                         "city": new_city, "country": new_country, 
-                        "coordinates": {"latitude": lat, "longitude": lon},
+                        "latitude": lat, "longitude": lon,
                         "detection_method": "manual_override"
                     })
                     st.success("✅ Location updated!")
@@ -533,94 +531,8 @@ if data_type == "📝 Text Data":
     # Mandatory Auto-Location Detection
     st.subheader("📍 Location (Auto-Detected)")
     
-    # Auto-fetch location on first load
-    if 'auto_location' not in st.session_state:
-        with st.spinner("🌐 Automatically detecting your location..."):
-            try:
-                import requests
-                response = requests.get('http://ip-api.com/json/', timeout=5)
-                if response.status_code == 200:
-                    ip_data = response.json()
-                    if ip_data.get('status') == 'success':
-                        location_data = {
-                            "city": ip_data.get("city", "Unknown"),
-                            "region": ip_data.get("regionName", "Unknown"), 
-                            "country": ip_data.get("country", "Unknown"),
-                            "latitude": ip_data.get("lat"),
-                            "longitude": ip_data.get("lon"),
-                            "detection_method": "ip_geolocation_auto"
-                        }
-                        st.session_state['auto_location'] = location_data
-                        st.success(f"✅ Location detected: {location_data['city']}, {location_data['country']}")
-                    else:
-                        st.error("❌ Location detection failed")
-                        st.session_state['auto_location'] = None
-                else:
-                    st.error("❌ Failed to connect to location service")
-                    st.session_state['auto_location'] = None
-            except Exception as e:
-                st.error(f"❌ Location detection error: {str(e)}")
-                st.session_state['auto_location'] = None
-    
-    # Display current location
-    if st.session_state.get('auto_location'):
-        location_data = st.session_state['auto_location']
-        st.info(f"📍 **Current Location**: {location_data['city']}, {location_data['country']} ({location_data['latitude']:.4f}, {location_data['longitude']:.4f})")
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("🔄 Refresh Location"):
-                del st.session_state['auto_location']
-                st.rerun()
-        with col2:
-            override = st.checkbox("✏️ Edit location")
-        
-        if override:
-            new_city = st.text_input("City:", value=location_data['city'])
-            new_country = st.text_input("Country:", value=location_data['country'])
-            new_coords = st.text_input("Coordinates:", value=f"{location_data['latitude']}, {location_data['longitude']}")
-            if st.button("Update") and new_city and new_country and new_coords:
-                try:
-                    lat, lon = map(float, new_coords.split(','))
-                    st.session_state['auto_location'].update({
-                        "city": new_city, "country": new_country, 
-                        "latitude": lat, "longitude": lon,
-                        "detection_method": "manual_override"
-                    })
-                    st.success("✅ Location updated!")
-                    st.rerun()
-                except:
-                    st.error("❌ Invalid coordinates format")
-    else:
-        st.error("❌ **Location is required for data upload**")
-        st.warning("Please provide location manually:")
-        manual_city = st.text_input("City (Required):")
-        manual_country = st.text_input("Country (Required):")
-        manual_coords = st.text_input("Coordinates (lat, lng):")
-        
-        if st.button("🌐 Try Auto-Detect Again"):
-            if 'auto_location' in st.session_state:
-                del st.session_state['auto_location']
-            st.rerun()
-        
-        if manual_city and manual_country and manual_coords:
-            try:
-                lat, lon = map(float, manual_coords.split(','))
-                if -90 <= lat <= 90 and -180 <= lon <= 180:
-                    location_data = {
-                        "city": manual_city, "country": manual_country,
-                        "latitude": lat, "longitude": lon,
-                        "detection_method": "manual_required"
-                    }
-                    st.session_state['auto_location'] = location_data
-                    st.success("✅ Manual location set!")
-                    st.rerun()
-                else:
-                    st.error("❌ Invalid coordinate range")
-            except:
-                st.error("❌ Invalid coordinate format")
-        
-        location_data = None  # No valid location
+    # Use the centralized location function
+    location_data = get_auto_location()
     
     st.markdown("---")
     
@@ -754,66 +666,8 @@ elif data_type == "🎵 Audio Data":
     # Mandatory Auto-Location Detection
     st.subheader("📍 Location (Auto-Detected)")
     
-    # Auto-fetch location on first load
-    if 'auto_location' not in st.session_state:
-        with st.spinner("🌐 Automatically detecting your location..."):
-            try:
-                import requests
-                response = requests.get('http://ip-api.com/json/', timeout=5)
-                if response.status_code == 200:
-                    ip_data = response.json()
-                    if ip_data.get('status') == 'success':
-                        location_data = {
-                            "city": ip_data.get("city", "Unknown"),
-                            "region": ip_data.get("regionName", "Unknown"), 
-                            "country": ip_data.get("country", "Unknown"),
-                            "latitude": ip_data.get("lat"),
-                            "longitude": ip_data.get("lon"),
-                            "detection_method": "ip_geolocation_auto"
-                        }
-                        st.session_state['auto_location'] = location_data
-                        st.success(f"✅ Location detected: {location_data['city']}, {location_data['country']}")
-                    else:
-                        st.error("❌ Location detection failed")
-                        st.session_state['auto_location'] = None
-                else:
-                    st.error("❌ Failed to connect to location service")
-                    st.session_state['auto_location'] = None
-            except Exception as e:
-                st.error(f"❌ Location detection error: {str(e)}")
-                st.session_state['auto_location'] = None
-    
-    # Display current location
-    if st.session_state.get('auto_location'):
-        location_data = st.session_state['auto_location']
-        st.info(f"📍 **Current Location**: {location_data['city']}, {location_data['country']} ({location_data['latitude']:.4f}, {location_data['longitude']:.4f})")
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("🔄 Refresh Location", key="audio_refresh_location"):
-                del st.session_state['auto_location']
-                st.rerun()
-        with col2:
-            override_audio = st.checkbox("✏️ Edit location", key="audio_edit_location")
-        
-        if override_audio:
-            new_city = st.text_input("City:", value=location_data['city'], key="audio_city")
-            new_country = st.text_input("Country:", value=location_data['country'], key="audio_country")
-            new_coords = st.text_input("Coordinates:", value=f"{location_data['latitude']}, {location_data['longitude']}", key="audio_coords")
-            if st.button("Update Location", key="audio_update_location") and new_city and new_country and new_coords:
-                try:
-                    lat, lon = map(float, new_coords.split(','))
-                    st.session_state['auto_location'].update({
-                        "city": new_city, "country": new_country, 
-                        "latitude": lat, "longitude": lon,
-                        "detection_method": "manual_override"
-                    })
-                    st.success("✅ Location updated!")
-                    st.rerun()
-                except ValueError:
-                    st.error("❌ Invalid coordinates format. Use: latitude, longitude")
-    else:
-        st.error("❌ Location detection failed. Location is required for uploads.")
+    # Use the centralized location function
+    location_data = get_auto_location()
         
     st.markdown("---")
     
@@ -892,66 +746,8 @@ elif data_type == "🎥 Video Data":
     # Mandatory Auto-Location Detection
     st.subheader("📍 Location (Auto-Detected)")
     
-    # Auto-fetch location on first load
-    if 'auto_location' not in st.session_state:
-        with st.spinner("🌐 Automatically detecting your location..."):
-            try:
-                import requests
-                response = requests.get('http://ip-api.com/json/', timeout=5)
-                if response.status_code == 200:
-                    ip_data = response.json()
-                    if ip_data.get('status') == 'success':
-                        location_data = {
-                            "city": ip_data.get("city", "Unknown"),
-                            "region": ip_data.get("regionName", "Unknown"), 
-                            "country": ip_data.get("country", "Unknown"),
-                            "latitude": ip_data.get("lat"),
-                            "longitude": ip_data.get("lon"),
-                            "detection_method": "ip_geolocation_auto"
-                        }
-                        st.session_state['auto_location'] = location_data
-                        st.success(f"✅ Location detected: {location_data['city']}, {location_data['country']}")
-                    else:
-                        st.error("❌ Location detection failed")
-                        st.session_state['auto_location'] = None
-                else:
-                    st.error("❌ Failed to connect to location service")
-                    st.session_state['auto_location'] = None
-            except Exception as e:
-                st.error(f"❌ Location detection error: {str(e)}")
-                st.session_state['auto_location'] = None
-    
-    # Display current location
-    if st.session_state.get('auto_location'):
-        location_data = st.session_state['auto_location']
-        st.info(f"📍 **Current Location**: {location_data['city']}, {location_data['country']} ({location_data['latitude']:.4f}, {location_data['longitude']:.4f})")
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("🔄 Refresh Location", key="video_refresh_location"):
-                del st.session_state['auto_location']
-                st.rerun()
-        with col2:
-            override_video = st.checkbox("✏️ Edit location", key="video_edit_location")
-        
-        if override_video:
-            new_city = st.text_input("City:", value=location_data['city'], key="video_city")
-            new_country = st.text_input("Country:", value=location_data['country'], key="video_country")
-            new_coords = st.text_input("Coordinates:", value=f"{location_data['latitude']}, {location_data['longitude']}", key="video_coords")
-            if st.button("Update Location", key="video_update_location") and new_city and new_country and new_coords:
-                try:
-                    lat, lon = map(float, new_coords.split(','))
-                    st.session_state['auto_location'].update({
-                        "city": new_city, "country": new_country, 
-                        "latitude": lat, "longitude": lon,
-                        "detection_method": "manual_override"
-                    })
-                    st.success("✅ Location updated!")
-                    st.rerun()
-                except ValueError:
-                    st.error("❌ Invalid coordinates format. Use: latitude, longitude")
-    else:
-        st.error("❌ Location detection failed. Location is required for uploads.")
+    # Use the centralized location function
+    location_data = get_auto_location()
         
     st.markdown("---")
     
@@ -1024,66 +820,8 @@ elif data_type == "🖼️ Image Data":
     # Mandatory Auto-Location Detection
     st.subheader("📍 Location (Auto-Detected)")
     
-    # Auto-fetch location on first load
-    if 'auto_location' not in st.session_state:
-        with st.spinner("🌐 Automatically detecting your location..."):
-            try:
-                import requests
-                response = requests.get('http://ip-api.com/json/', timeout=5)
-                if response.status_code == 200:
-                    ip_data = response.json()
-                    if ip_data.get('status') == 'success':
-                        location_data = {
-                            "city": ip_data.get("city", "Unknown"),
-                            "region": ip_data.get("regionName", "Unknown"), 
-                            "country": ip_data.get("country", "Unknown"),
-                            "latitude": ip_data.get("lat"),
-                            "longitude": ip_data.get("lon"),
-                            "detection_method": "ip_geolocation_auto"
-                        }
-                        st.session_state['auto_location'] = location_data
-                        st.success(f"✅ Location detected: {location_data['city']}, {location_data['country']}")
-                    else:
-                        st.error("❌ Location detection failed")
-                        st.session_state['auto_location'] = None
-                else:
-                    st.error("❌ Failed to connect to location service")
-                    st.session_state['auto_location'] = None
-            except Exception as e:
-                st.error(f"❌ Location detection error: {str(e)}")
-                st.session_state['auto_location'] = None
-    
-    # Display current location
-    if st.session_state.get('auto_location'):
-        location_data = st.session_state['auto_location']
-        st.info(f"📍 **Current Location**: {location_data['city']}, {location_data['country']} ({location_data['latitude']:.4f}, {location_data['longitude']:.4f})")
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("🔄 Refresh Location", key="image_refresh_location"):
-                del st.session_state['auto_location']
-                st.rerun()
-        with col2:
-            override_image = st.checkbox("✏️ Edit location", key="image_edit_location")
-        
-        if override_image:
-            new_city = st.text_input("City:", value=location_data['city'], key="image_city")
-            new_country = st.text_input("Country:", value=location_data['country'], key="image_country")
-            new_coords = st.text_input("Coordinates:", value=f"{location_data['latitude']}, {location_data['longitude']}", key="image_coords")
-            if st.button("Update Location", key="image_update_location") and new_city and new_country and new_coords:
-                try:
-                    lat, lon = map(float, new_coords.split(','))
-                    st.session_state['auto_location'].update({
-                        "city": new_city, "country": new_country, 
-                        "latitude": lat, "longitude": lon,
-                        "detection_method": "manual_override"
-                    })
-                    st.success("✅ Location updated!")
-                    st.rerun()
-                except ValueError:
-                    st.error("❌ Invalid coordinates format. Use: latitude, longitude")
-    else:
-        st.error("❌ Location detection failed. Location is required for uploads.")
+    # Use the centralized location function
+    location_data = get_auto_location()
         
     st.markdown("---")
     

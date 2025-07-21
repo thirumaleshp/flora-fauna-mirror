@@ -1,3 +1,7 @@
+import streamlit as st
+import datetime
+import requests
+
 def get_auto_location():
     """Automatically get location using IP geolocation and make it mandatory"""
     

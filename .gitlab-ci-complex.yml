@@ -1,0 +1,121 @@
+# GitLab CI/CD Pipeline for Flora & Fauna Data Collection App
+stages:
+  - test
+  - deploy
+
+variables:
+  PYTHON_VERSION: "3.11"
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+
+cache:
+  paths:
+    - .cache/pip
+    - venv/
+
+# Test Stage
+test_app:
+  stage: test
+  image: python:3.11-slim
+  tags:
+    - docker
+  before_script:
+    - python -m pip install --upgrade pip
+    - pip install -r requirements.txt
+  script:
+    - python -c "print('Testing basic Python functionality...')"
+    - python -m py_compile app.py
+    - python -c "import streamlit; print('✅ Streamlit imported successfully')"
+    - python -c "import pandas; print('✅ Pandas imported successfully')"
+    - python -c "import requests; print('✅ Requests imported successfully')"
+    - echo "✅ All dependencies and syntax check passed"
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - merge_requests
+
+# Build Stage (Docker Image)
+build_docker:
+  stage: build
+  image: docker:20.10.16
+  services:
+    - docker:20.10.16-dind
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
+  before_script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  script:
+    - docker build -t $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA .
+    - docker build -t $CI_REGISTRY_IMAGE:latest .
+    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
+    - docker push $CI_REGISTRY_IMAGE:latest
+  only:
+    - main
+
+# Deploy to GitLab Pages
+pages:
+  stage: deploy
+  image: python:3.11-slim
+  before_script:
+    - python -m pip install --upgrade pip
+    - pip install -r requirements.txt
+  script:
+    - mkdir public
+    - cp deployment.html public/index.html
+    - cp -r .streamlit public/
+    - echo "Deployment guide available at GitLab Pages"
+  artifacts:
+    paths:
+      - public
+  only:
+    - main
+
+# Deploy to Heroku (if configured)
+deploy_heroku:
+  stage: deploy
+  image: ruby:2.7
+  before_script:
+    - apt-get update -qy
+    - apt-get install -y ruby-dev
+    - gem install dpl
+  script:
+    - dpl --provider=heroku --app=$HEROKU_APP_NAME --api-key=$HEROKU_API_KEY
+  only:
+    - main
+  when: manual
+  environment:
+    name: production
+    url: https://$HEROKU_APP_NAME.herokuapp.com
+
+# Deploy to Railway (if configured)
+deploy_railway:
+  stage: deploy
+  image: node:16
+  before_script:
+    - npm install -g @railway/cli
+  script:
+    - railway login --token $RAILWAY_TOKEN
+    - railway up
+  only:
+    - main
+  when: manual
+  environment:
+    name: railway
+    url: https://$RAILWAY_DOMAIN
+
+# Deployment information
+deployment_info:
+  stage: deploy
+  image: alpine:latest
+  script:
+    - echo "Flora and Fauna Data Collection App - Deployment Information"
+    - echo "Docker Image available at $CI_REGISTRY_IMAGE:latest"
+    - echo "GitLab Pages at https://$CI_PROJECT_NAMESPACE.gitlab.io/$CI_PROJECT_NAME"
+    - echo "Repository at $CI_PROJECT_URL"
+    - echo "Available deployment options:"
+    - echo "- Docker deployment"
+    - echo "- GitLab Pages deployment guide"
+    - echo "- Heroku manual deployment"
+    - echo "- Railway manual deployment"
+    - echo "- Streamlit Cloud via GitLab integration"
+  only:
+    - main
