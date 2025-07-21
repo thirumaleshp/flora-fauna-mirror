@@ -270,7 +270,7 @@ def get_auto_location():
                     }
                     st.session_state['auto_location'] = location_data
                     
-            except Exception:
+            except Exception as e:
                 # Fallback to ip-api.com
                 try:
                     response = requests.get('http://ip-api.com/json/', timeout=5)
