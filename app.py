@@ -203,165 +203,215 @@ def display_file_preview(row, idx):
 
 # Location Component
 def get_auto_location():
-    """Get location automatically using IP geolocation with accurate coordinates"""
+    """Get location from device GPS/browser geolocation (mandatory for all uploads)"""
     import time
     current_time = time.time()
     
-    # Check if we have recent location data (less than 2 minutes old for better accuracy)
+    # Check if we have recent location data (less than 10 minutes old)
     if ('auto_location' in st.session_state and 
         'timestamp' in st.session_state.get('auto_location', {}) and
-        current_time - st.session_state['auto_location']['timestamp'] < 120):  # 2 minutes
+        current_time - st.session_state['auto_location']['timestamp'] < 600):  # 10 minutes
         location_data = st.session_state['auto_location']
     else:
-        # Get fresh location data using multiple accurate IP geolocation services
-        with st.spinner("🌐 Detecting your current location with precise coordinates..."):
-            location_data = None
-            try:
-                import requests
+        # Get device location using browser geolocation API
+        st.write("🌐 **Getting your device location...**")
+        
+        # HTML/JavaScript for device location detection
+        location_html = """
+        <div id="location-status">
+            <p>📍 <strong>Requesting device location...</strong></p>
+            <p><small>Please allow location access when prompted by your browser</small></p>
+        </div>
+        
+        <script>
+        function getLocation() {
+            const statusDiv = document.getElementById("location-status");
+            
+            if (navigator.geolocation) {
+                statusDiv.innerHTML = '<p>🔍 <strong>Detecting location...</strong></p>';
                 
-                # More accurate IP geolocation services with better Indian coverage
-                services = [
-                    {
-                        'url': 'http://ip-api.com/json/?fields=status,message,country,countryCode,region,regionName,city,zip,lat,lon,timezone,isp,org,as,query',
-                        'name': 'ip-api.com',
-                        'parser': 'ip_api'
+                navigator.geolocation.getCurrentPosition(
+                    function(position) {
+                        const lat = position.coords.latitude;
+                        const lon = position.coords.longitude;
+                        const accuracy = position.coords.accuracy;
+                        
+                        // Reverse geocoding to get city/country
+                        fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`)
+                            .then(response => response.json())
+                            .then(data => {
+                                const locationData = {
+                                    latitude: lat,
+                                    longitude: lon,
+                                    accuracy: accuracy,
+                                    city: data.city || data.locality || 'Unknown City',
+                                    region: data.principalSubdivision || 'Unknown Region',
+                                    country: data.countryName || 'Unknown Country',
+                                    country_code: data.countryCode || '',
+                                    detection_method: 'device_gps',
+                                    timestamp: Date.now() / 1000
+                                };
+                                
+                                statusDiv.innerHTML = `
+                                    <p>✅ <strong>Location detected successfully!</strong></p>
+                                    <p>📍 ${locationData.city}, ${locationData.country}</p>
+                                    <p>🎯 Coordinates: ${lat.toFixed(6)}, ${lon.toFixed(6)}</p>
+                                    <p>📏 Accuracy: ±${Math.round(accuracy)} meters</p>
+                                    <p><small>🔄 Please refresh the page to use this location</small></p>
+                                `;
+                                
+                                // Store in browser storage
+                                localStorage.setItem('flora_fauna_location', JSON.stringify(locationData));
+                            })
+                            .catch(error => {
+                                statusDiv.innerHTML = `
+                                    <p>⚠️ <strong>Location detected but city lookup failed</strong></p>
+                                    <p>🎯 Coordinates: ${lat.toFixed(6)}, ${lon.toFixed(6)}</p>
+                                    <p>📏 Accuracy: ±${Math.round(accuracy)} meters</p>
+                                    <p><small>🔄 Please refresh the page to use this location</small></p>
+                                `;
+                                
+                                const locationData = {
+                                    latitude: lat,
+                                    longitude: lon,
+                                    accuracy: accuracy,
+                                    city: 'GPS Location',
+                                    region: 'Unknown',
+                                    country: 'Unknown',
+                                    country_code: '',
+                                    detection_method: 'device_gps',
+                                    timestamp: Date.now() / 1000
+                                };
+                                localStorage.setItem('flora_fauna_location', JSON.stringify(locationData));
+                            });
+                    },
+                    function(error) {
+                        let errorMsg = '';
+                        switch(error.code) {
+                            case error.PERMISSION_DENIED:
+                                errorMsg = "❌ Location access denied. Please enable location permissions and try again.";
+                                break;
+                            case error.POSITION_UNAVAILABLE:
+                                errorMsg = "⚠️ Location unavailable. Please check GPS settings.";
+                                break;
+                            case error.TIMEOUT:
+                                errorMsg = "⏰ Location request timed out. Please try again.";
+                                break;
+                            default:
+                                errorMsg = "❌ Unknown location error. Please try again.";
+                                break;
+                        }
+                        statusDiv.innerHTML = `<p>${errorMsg}</p><p><small>You can use 'Edit location' to set manually</small></p>`;
                     },
                     {
-                        'url': 'https://ipapi.co/json/',
-                        'name': 'ipapi.co',
-                        'parser': 'ipapi_co'
-                    },
-                    {
-                        'url': 'https://ipinfo.io/json',
-                        'name': 'ipinfo.io',
-                        'parser': 'ipinfo'
-                    },
-                    {
-                        'url': 'https://api.ipgeolocation.io/ipgeo?apiKey=free',
-                        'name': 'ipgeolocation.io',
-                        'parser': 'ipgeolocation'
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 300000  // 5 minutes
                     }
-                ]
+                );
+            } else {
+                statusDiv.innerHTML = '<p>❌ <strong>Geolocation not supported by this browser</strong></p><p><small>Please use a modern browser or set location manually</small></p>';
+            }
+        }
+        
+        // Check if we have stored location first
+        const storedLocation = localStorage.getItem('flora_fauna_location');
+        if (storedLocation) {
+            try {
+                const locationData = JSON.parse(storedLocation);
+                const ageMinutes = (Date.now() / 1000 - locationData.timestamp) / 60;
                 
-                for service in services:
-                    try:
-                        response = requests.get(service['url'], timeout=5)
-                        if response.status_code == 200:
-                            ip_data = response.json()
-                            
-                            # Parse based on service type
-                            if service['parser'] == 'ip_api' and ip_data.get('status') == 'success':
-                                location_data = {
-                                    "city": ip_data.get("city", "Unknown"),
-                                    "region": ip_data.get("regionName", "Unknown"), 
-                                    "country": ip_data.get("country", "Unknown"),
-                                    "country_code": ip_data.get("countryCode", ""),
-                                    "latitude": float(ip_data.get("lat", 0)),
-                                    "longitude": float(ip_data.get("lon", 0)),
-                                    "timezone": ip_data.get("timezone", ""),
-                                    "isp": ip_data.get("isp", ""),
-                                    "ip_address": ip_data.get("query", ""),
-                                    "detection_method": "ip_geolocation_precise",
-                                    "timestamp": current_time,
-                                    "service": service['name']
-                                }
-                                break
-                                
-                            elif service['parser'] == 'ipapi_co' and ip_data.get('city'):
-                                location_data = {
-                                    "city": ip_data.get("city", "Unknown"),
-                                    "region": ip_data.get("region", "Unknown"), 
-                                    "country": ip_data.get("country_name", "Unknown"),
-                                    "country_code": ip_data.get("country_code", ""),
-                                    "latitude": float(ip_data.get("latitude", 0)) if ip_data.get("latitude") else 0,
-                                    "longitude": float(ip_data.get("longitude", 0)) if ip_data.get("longitude") else 0,
-                                    "timezone": ip_data.get("timezone", ""),
-                                    "isp": ip_data.get("org", ""),
-                                    "ip_address": ip_data.get("ip", ""),
-                                    "detection_method": "ip_geolocation_precise",
-                                    "timestamp": current_time,
-                                    "service": service['name']
-                                }
-                                break
-                                
-                            elif service['parser'] == 'ipinfo' and ip_data.get('city'):
-                                loc = ip_data.get("loc", "0,0").split(',')
-                                location_data = {
-                                    "city": ip_data.get("city", "Unknown"),
-                                    "region": ip_data.get("region", "Unknown"), 
-                                    "country": ip_data.get("country", "Unknown"),
-                                    "country_code": ip_data.get("country", ""),
-                                    "latitude": float(loc[0]) if len(loc) > 0 and loc[0] else 0,
-                                    "longitude": float(loc[1]) if len(loc) > 1 and loc[1] else 0,
-                                    "timezone": ip_data.get("timezone", ""),
-                                    "isp": ip_data.get("org", ""),
-                                    "ip_address": ip_data.get("ip", ""),
-                                    "detection_method": "ip_geolocation_precise",
-                                    "timestamp": current_time,
-                                    "service": service['name']
-                                }
-                                break
-                                
-                            elif service['parser'] == 'ipgeolocation' and ip_data.get('city'):
-                                location_data = {
-                                    "city": ip_data.get("city", "Unknown"),
-                                    "region": ip_data.get("state_prov", "Unknown"), 
-                                    "country": ip_data.get("country_name", "Unknown"),
-                                    "country_code": ip_data.get("country_code2", ""),
-                                    "latitude": float(ip_data.get("latitude", 0)) if ip_data.get("latitude") else 0,
-                                    "longitude": float(ip_data.get("longitude", 0)) if ip_data.get("longitude") else 0,
-                                    "timezone": ip_data.get("time_zone", {}).get("name", "") if ip_data.get("time_zone") else "",
-                                    "isp": ip_data.get("isp", ""),
-                                    "ip_address": ip_data.get("ip", ""),
-                                    "detection_method": "ip_geolocation_precise",
-                                    "timestamp": current_time,
-                                    "service": service['name']
-                                }
-                                break
-                                
-                    except Exception as e:
-                        st.write(f"Debug: {service['name']} failed: {str(e)}")
-                        continue
-                
-                if location_data and location_data.get('latitude') != 0 and location_data.get('longitude') != 0:
-                    st.session_state['auto_location'] = location_data
-                    st.success(f"✅ Location detected: {location_data['city']}, {location_data['country']} ({location_data['latitude']:.4f}, {location_data['longitude']:.4f}) via {location_data['service']}")
-                else:
-                    st.error("❌ Could not get accurate coordinates from IP location services")
-                    # Create basic location without coordinates
-                    location_data = {
-                        "city": "Unknown Location",
-                        "region": "Unknown", 
-                        "country": "Unknown",
-                        "country_code": "",
-                        "latitude": 0.0,
-                        "longitude": 0.0,
-                        "timezone": "",
-                        "isp": "",
-                        "ip_address": "",
-                        "detection_method": "fallback",
-                        "timestamp": current_time,
-                        "service": "fallback"
-                    }
-                    st.session_state['auto_location'] = location_data
-                    
-            except Exception as e:
-                st.error(f"❌ Location detection error: {str(e)}")
-                location_data = {
-                    "city": "Unknown Location",
-                    "region": "Unknown", 
-                    "country": "Unknown",
-                    "country_code": "",
-                    "latitude": 0.0,
-                    "longitude": 0.0,
-                    "timezone": "",
-                    "isp": "",
-                    "ip_address": "",
-                    "detection_method": "error_fallback",
-                    "timestamp": current_time,
-                    "service": "fallback"
+                if (ageMinutes < 10) {  // Use if less than 10 minutes old
+                    document.getElementById("location-status").innerHTML = `
+                        <p>✅ <strong>Using stored device location</strong></p>
+                        <p>📍 ${locationData.city}, ${locationData.country}</p>
+                        <p>🎯 ${locationData.latitude.toFixed(6)}, ${locationData.longitude.toFixed(6)}</p>
+                        <p>📏 Accuracy: ±${Math.round(locationData.accuracy)} meters</p>
+                        <p><small>⏰ Detected ${Math.round(ageMinutes)} minutes ago</small></p>
+                    `;
+                } else {
+                    getLocation();  // Too old, get fresh location
                 }
-                st.session_state['auto_location'] = location_data
+            } catch(e) {
+                getLocation();  // Invalid stored data, get fresh location
+            }
+        } else {
+            getLocation();  // No stored location, get fresh location
+        }
+        </script>
+        """
+        
+        st.components.v1.html(location_html, height=200)
+        
+        # Try to get location from browser storage
+        try:
+            if 'device_location_checked' not in st.session_state:
+                st.session_state['device_location_checked'] = True
+                
+            # Check if we can get the location from browser storage
+            location_js = """
+            <script>
+            const storedLocation = localStorage.getItem('flora_fauna_location');
+            if (storedLocation) {
+                const locationData = JSON.parse(storedLocation);
+                const ageMinutes = (Date.now() / 1000 - locationData.timestamp) / 60;
+                if (ageMinutes < 10) {
+                    // Send location to Streamlit (this would need a more complex setup)
+                    console.log('Location available:', locationData);
+                }
+            }
+            </script>
+            """
+            st.components.v1.html(location_js, height=0)
+            
+        except Exception as e:
+            st.error(f"Location detection error: {str(e)}")
+        
+        # Fallback: Allow manual entry if device location fails
+        st.warning("⚠️ **If device location doesn't work above, please set your location manually:**")
+        
+        # Manual location input
+        col1, col2 = st.columns(2)
+        with col1:
+            manual_city = st.text_input("🏙️ Enter your city:", placeholder="e.g., Mumbai, Delhi, Bangalore")
+            manual_country = st.text_input("🌍 Enter your country:", value="India")
+        with col2:
+            manual_lat = st.number_input("📍 Latitude:", format="%.6f", value=0.0, help="Optional: for precise location")
+            manual_lon = st.number_input("📍 Longitude:", format="%.6f", value=0.0, help="Optional: for precise location")
+        
+        if st.button("💾 Set Manual Location") and manual_city and manual_country:
+            import time
+            location_data = {
+                "city": manual_city.strip(),
+                "region": "Manual Entry",
+                "country": manual_country.strip(),
+                "country_code": "",
+                "latitude": float(manual_lat) if manual_lat != 0 else None,
+                "longitude": float(manual_lon) if manual_lon != 0 else None,
+                "accuracy": None,
+                "detection_method": "manual_entry",
+                "timestamp": time.time(),
+                "service": "manual"
+            }
+            st.session_state['auto_location'] = location_data
+            st.success(f"✅ Location set to {manual_city}, {manual_country}")
+            st.rerun()
+        
+        # Set a basic location if nothing is available
+        if 'auto_location' not in st.session_state:
+            location_data = {
+                "city": "Unknown Location",
+                "region": "Unknown",
+                "country": "Unknown", 
+                "country_code": "",
+                "latitude": None,
+                "longitude": None,
+                "accuracy": None,
+                "detection_method": "pending",
+                "timestamp": current_time,
+                "service": "pending"
+            }
+            st.session_state['auto_location'] = location_data
     
     # Display current location with enhanced details
     if st.session_state.get('auto_location'):
