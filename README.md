@@ -1,5 +1,5 @@
 
-# flora
+# Flora and Fauna
 
 ## [flora-fauna.streamlit.app](https://flora-fauna.streamlit.app/)
 
