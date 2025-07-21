@@ -1,77 +1,29 @@
 # GitLab CI/CD Pipeline for Flora & Fauna Data Collection App
 stages:
   - test
-  - deploy
 
 variables:
-  PYTHON_VERSION: "3.11"
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
 
 cache:
   paths:
     - .cache/pip
-    - venv/
 
 # Test Stage - Basic syntax and dependency check
 test_app:
   stage: test
   image: python:3.11-slim
-  tags:
-    - docker
-  before_script:
+  script:
     - python -m pip install --upgrade pip
     - pip install -r requirements.txt
-  script:
-    - echo "🧪 Testing Flora & Fauna Data Collection App"
-    - python -c "print('✅ Python is working')"
+    - echo "Testing Flora & Fauna Data Collection App"
+    - python -c "print('Python is working')"
     - python -m py_compile app.py
-    - python -c "import streamlit; print('✅ Streamlit imported successfully')"
-    - python -c "import pandas; print('✅ Pandas imported successfully')"  
-    - python -c "import requests; print('✅ Requests imported successfully')"
-    - python -c "from supabase import create_client; print('✅ Supabase client imported successfully')"
-    - echo "✅ All tests passed - app is ready for deployment"
+    - python -c "import streamlit; print('Streamlit imported successfully')"
+    - python -c "import pandas; print('Pandas imported successfully')"  
+    - python -c "import requests; print('Requests imported successfully')"
+    - python -c "from supabase import create_client; print('Supabase client imported successfully')"
+    - echo "All tests passed - app is ready for deployment"
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-
-# Deploy to GitLab Pages - Simple documentation
-pages:
-  stage: deploy
-  image: alpine:latest
-  tags:
-    - docker
-  script:
-    - mkdir public
-    - echo "<html><head><title>Flora & Fauna App</title></head><body>" > public/index.html
-    - echo "<h1>🌿 Flora & Fauna Data Collection App</h1>" >> public/index.html
-    - echo "<p>✅ Tests passed successfully! Your app is ready for deployment.</p>" >> public/index.html
-    - echo "<h2>🚀 Deployment Options:</h2>" >> public/index.html
-    - echo "<ul>" >> public/index.html
-    - echo "<li><strong>Streamlit Cloud</strong>: Go to share.streamlit.io</li>" >> public/index.html
-    - echo "<li><strong>Docker</strong>: docker build -t flora-fauna .</li>" >> public/index.html
-    - echo "<li><strong>Local</strong>: streamlit run app.py</li>" >> public/index.html
-    - echo "</ul>" >> public/index.html
-    - echo "<p>📋 Set up your Supabase credentials: SUPABASE_URL and SUPABASE_ANON_KEY</p>" >> public/index.html
-    - echo "</body></html>" >> public/index.html
-    - echo "✅ Deployment guide generated"
-  artifacts:
-    paths:
-      - public
-  rules:
-    - if: $CI_COMMIT_BRANCH == "main"
-
-# Deployment summary
-deployment_summary:
-  stage: deploy
-  image: alpine:latest
-  tags:
-    - docker
-  script:
-    - echo "🌿 Flora & Fauna Data Collection App - Deployment Summary"
-    - echo "========================================================"
-    - echo "✅ Tests: All passed"
-    - echo "📄 Documentation: Available at GitLab Pages"
-    - echo "🚀 Ready for deployment to Streamlit Cloud, Docker, or local"
-    - echo "📋 Next: Set up Supabase credentials and deploy"
-  rules:
-    - if: $CI_COMMIT_BRANCH == "main"
