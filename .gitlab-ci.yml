@@ -13,6 +13,8 @@ cache:
 test_app:
   stage: test
   image: python:3.11-slim
+  tags:
+    - saas-linux-small-amd64
   script:
     - python -m pip install --upgrade pip
     - pip install -r requirements.txt
