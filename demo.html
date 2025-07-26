@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🌿 Flora & Fauna Demo</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <!-- Custom Tailwind Config -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'nature-green': '#2d5a27',
+                        'nature-light': '#4ade80',
+                        'earth-brown': '#8b5a3c'
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        .nature-gradient {
+            background: linear-gradient(135deg, #2d5a27 0%, #4ade80 100%);
+        }
+        .card-hover {
+            transition: all 0.3s ease;
+        }
+        .card-hover:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        .fade-in {
+            animation: fadeIn 0.8s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="font-sans text-gray-800 bg-gray-50">
+    
+    <!-- Demo Banner -->
+    <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 text-center">
+        <p class="font-medium">
+            <i class="fas fa-info-circle mr-2"></i>
+            This is a demo version with sample data. For the full experience with live Supabase data, use <code>index.html</code>
+        </p>
+    </div>
+
+    <!-- Navigation Bar -->
+    <nav class="bg-white shadow-lg sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center space-x-3">
+                    <span class="text-2xl">🌿</span>
+                    <span class="text-xl font-bold text-nature-green">Flora & Fauna Hub (Demo)</span>
+                </div>
+                <div class="hidden md:flex items-center space-x-6">
+                    <a href="#home" class="text-gray-700 hover:text-nature-green transition-colors">Home</a>
+                    <a href="#data" class="text-gray-700 hover:text-nature-green transition-colors">Data Collection</a>
+                    <a href="index.html" class="bg-nature-green text-white px-4 py-2 rounded-full text-sm hover:bg-green-600 transition-colors">
+                        Live Version
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section id="home" class="nature-gradient text-white py-20 px-4">
+        <div class="max-w-6xl mx-auto text-center fade-in">
+            <h1 class="text-5xl md:text-7xl font-bold mb-6 leading-tight">
+                Preserve Our 
+                <span class="text-yellow-300">Biodiversity</span>
+            </h1>
+            <p class="text-xl md:text-2xl mb-8 max-w-3xl mx-auto leading-relaxed">
+                Document and preserve the world's flora and fauna through innovative multi-media data collection. 
+                Join our mission to create a comprehensive biodiversity database.
+            </p>
+            
+            <div class="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
+                <button onclick="document.getElementById('data').scrollIntoView({behavior: 'smooth'})" 
+                        class="bg-white text-nature-green px-8 py-4 rounded-full font-semibold text-lg hover:bg-yellow-100 transition-all duration-300 transform hover:scale-105 shadow-lg">
+                    <i class="fas fa-search mr-2"></i>
+                    Explore Demo Data
+                </button>
+                <a href="index.html" 
+                   class="border-2 border-white text-white px-8 py-4 rounded-full font-semibold text-lg hover:bg-white hover:text-nature-green transition-all duration-300 transform hover:scale-105">
+                    <i class="fas fa-rocket mr-2"></i>
+                    Try Live Version
+                </a>
+            </div>
+            
+            <!-- Statistics Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+                <div class="bg-white bg-opacity-20 backdrop-blur-sm rounded-xl p-6 text-center">
+                    <div class="text-3xl md:text-4xl font-bold mb-2">247</div>
+                    <div class="text-lg opacity-90">Total Records</div>
+                </div>
+                <div class="bg-white bg-opacity-20 backdrop-blur-sm rounded-xl p-6 text-center">
+                    <div class="text-3xl md:text-4xl font-bold mb-2">89</div>
+                    <div class="text-lg opacity-90">Species Documented</div>
+                </div>
+                <div class="bg-white bg-opacity-20 backdrop-blur-sm rounded-xl p-6 text-center">
+                    <div class="text-3xl md:text-4xl font-bold mb-2">23</div>
+                    <div class="text-lg opacity-90">Locations Mapped</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Data Collection Section -->
+    <section id="data" class="py-20 px-4 bg-white">
+        <div class="max-w-7xl mx-auto">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl md:text-5xl font-bold text-nature-green mb-6">Sample Data Collection</h2>
+                <p class="text-xl text-gray-600 max-w-3xl mx-auto">
+                    Preview of the types of flora and fauna data that can be collected and displayed using the full system.
+                </p>
+            </div>
+
+            <!-- Sample Data Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                
+                <!-- Sample Image Entry -->
+                <div class="bg-white rounded-xl shadow-lg overflow-hidden card-hover fade-in">
+                    <div class="relative">
+                        <div class="h-48 bg-gradient-to-r from-green-400 to-blue-500 flex items-center justify-center">
+                            <i class="fas fa-image text-6xl text-white opacity-75"></i>
+                        </div>
+                        <div class="absolute top-4 left-4">
+                            <span class="bg-black bg-opacity-50 text-white px-3 py-1 rounded-full text-sm">
+                                🖼️ Image
+                            </span>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <h3 class="text-xl font-semibold mb-3 text-gray-800">Amazon Rainforest Orchid</h3>
+                        <p class="text-gray-600 mb-4">Rare orchid species discovered in the upper canopy of the Amazon rainforest. Notable for its vibrant purple petals and unique spiral pattern.</p>
+                        <div class="flex items-center justify-between text-sm text-gray-500 mb-4">
+                            <div class="flex items-center space-x-2">
+                                <i class="fas fa-calendar"></i>
+                                <span>Dec 15, 2024</span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <i class="fas fa-map-marker-alt"></i>
+                                <span>Amazon, Brazil</span>
+                            </div>
+                        </div>
+                        <div class="flex space-x-3">
+                            <button class="flex-1 bg-nature-green text-white text-center py-2 px-4 rounded-lg hover:bg-green-600 transition-colors">
+                                <i class="fas fa-external-link-alt mr-2"></i>View
+                            </button>
+                            <button class="flex-1 bg-gray-100 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-200 transition-colors">
+                                <i class="fas fa-info-circle mr-2"></i>Details
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sample Audio Entry -->
+                <div class="bg-white rounded-xl shadow-lg overflow-hidden card-hover fade-in">
+                    <div class="relative">
+                        <div class="h-48 bg-gradient-to-r from-purple-400 to-pink-400 flex items-center justify-center">
+                            <i class="fas fa-music text-6xl text-white"></i>
+                        </div>
+                        <div class="absolute top-4 left-4">
+                            <span class="bg-black bg-opacity-50 text-white px-3 py-1 rounded-full text-sm">
+                                🎵 Audio
+                            </span>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <h3 class="text-xl font-semibold mb-3 text-gray-800">Humpback Whale Song</h3>
+                        <p class="text-gray-600 mb-4">Recorded migration song from a pod of humpback whales off the coast of Alaska. Contains complex harmonic patterns typical of mating calls.</p>
+                        <div class="flex items-center justify-between text-sm text-gray-500 mb-4">
+                            <div class="flex items-center space-x-2">
+                                <i class="fas fa-calendar"></i>
+                                <span>Dec 10, 2024</span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <i class="fas fa-map-marker-alt"></i>
+                                <span>Alaska, USA</span>
+                            </div>
+                        </div>
+                        <div class="flex space-x-3">
+                            <button class="flex-1 bg-nature-green text-white text-center py-2 px-4 rounded-lg hover:bg-green-600 transition-colors">
+                                <i class="fas fa-play mr-2"></i>Play
+                            </button>
+                            <button class="flex-1 bg-gray-100 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-200 transition-colors">
+                                <i class="fas fa-info-circle mr-2"></i>Details
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sample Text Entry -->
+                <div class="bg-white rounded-xl shadow-lg overflow-hidden card-hover fade-in">
+                    <div class="relative">
+                        <div class="h-48 bg-gradient-to-r from-blue-400 to-indigo-400 flex items-center justify-center">
+                            <i class="fas fa-file-text text-6xl text-white"></i>
+                        </div>
+                        <div class="absolute top-4 left-4">
+                            <span class="bg-black bg-opacity-50 text-white px-3 py-1 rounded-full text-sm">
+                                📝 Text
+                            </span>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <h3 class="text-xl font-semibold mb-3 text-gray-800">Behavioral Study: Arctic Foxes</h3>
+                        <p class="text-gray-600 mb-4">Field notes on Arctic fox hunting behavior during winter months. Observed pack coordination and adaptation to climate change impacts...</p>
+                        <div class="flex items-center justify-between text-sm text-gray-500 mb-4">
+                            <div class="flex items-center space-x-2">
+                                <i class="fas fa-calendar"></i>
+                                <span>Dec 5, 2024</span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <i class="fas fa-map-marker-alt"></i>
+                                <span>Greenland</span>
+                            </div>
+                        </div>
+                        <div class="flex space-x-3">
+                            <button class="flex-1 bg-nature-green text-white text-center py-2 px-4 rounded-lg hover:bg-green-600 transition-colors">
+                                <i class="fas fa-external-link-alt mr-2"></i>Read
+                            </button>
+                            <button class="flex-1 bg-gray-100 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-200 transition-colors">
+                                <i class="fas fa-info-circle mr-2"></i>Details
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sample Video Entry -->
+                <div class="bg-white rounded-xl shadow-lg overflow-hidden card-hover fade-in">
+                    <div class="relative">
+                        <div class="h-48 bg-gray-900 flex items-center justify-center">
+                            <i class="fas fa-play-circle text-6xl text-white opacity-75"></i>
+                        </div>
+                        <div class="absolute top-4 left-4">
+                            <span class="bg-black bg-opacity-50 text-white px-3 py-1 rounded-full text-sm">
+                                🎥 Video
+                            </span>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <h3 class="text-xl font-semibold mb-3 text-gray-800">Tiger Family in Natural Habitat</h3>
+                        <p class="text-gray-600 mb-4">Rare footage of a tiger family with cubs in their natural habitat. Shows hunting behavior and maternal care patterns in the wild.</p>
+                        <div class="flex items-center justify-between text-sm text-gray-500 mb-4">
+                            <div class="flex items-center space-x-2">
+                                <i class="fas fa-calendar"></i>
+                                <span>Nov 28, 2024</span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <i class="fas fa-map-marker-alt"></i>
+                                <span>India</span>
+                            </div>
+                        </div>
+                        <div class="flex space-x-3">
+                            <button class="flex-1 bg-nature-green text-white text-center py-2 px-4 rounded-lg hover:bg-green-600 transition-colors">
+                                <i class="fas fa-play mr-2"></i>Watch
+                            </button>
+                            <button class="flex-1 bg-gray-100 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-200 transition-colors">
+                                <i class="fas fa-info-circle mr-2"></i>Details
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sample Location Entry -->
+                <div class="bg-white rounded-xl shadow-lg overflow-hidden card-hover fade-in">
+                    <div class="relative">
+                        <div class="h-48 bg-gradient-to-r from-emerald-400 to-cyan-400 flex items-center justify-center">
+                            <i class="fas fa-leaf text-6xl text-white"></i>
+                        </div>
+                        <div class="absolute top-4 left-4">
+                            <span class="bg-black bg-opacity-50 text-white px-3 py-1 rounded-full text-sm">
+                                📍 Location
+                            </span>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <h3 class="text-xl font-semibold mb-3 text-gray-800">Coral Reef Ecosystem</h3>
+                        <p class="text-gray-600 mb-4">Detailed study of coral reef biodiversity and health assessment. Includes species count and water quality measurements.</p>
+                        <div class="flex items-center justify-between text-sm text-gray-500 mb-4">
+                            <div class="flex items-center space-x-2">
+                                <i class="fas fa-calendar"></i>
+                                <span>Nov 20, 2024</span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <i class="fas fa-map-marker-alt"></i>
+                                <span>Great Barrier Reef</span>
+                            </div>
+                        </div>
+                        <div class="flex space-x-3">
+                            <button class="flex-1 bg-nature-green text-white text-center py-2 px-4 rounded-lg hover:bg-green-600 transition-colors">
+                                <i class="fas fa-map mr-2"></i>View Location
+                            </button>
+                            <button class="flex-1 bg-gray-100 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-200 transition-colors">
+                                <i class="fas fa-info-circle mr-2"></i>Details
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Feature Showcase -->
+                <div class="bg-gradient-to-r from-nature-green to-nature-light text-white rounded-xl shadow-lg overflow-hidden card-hover fade-in">
+                    <div class="p-8 text-center">
+                        <i class="fas fa-rocket text-4xl mb-4"></i>
+                        <h3 class="text-xl font-semibold mb-3">Ready for Production?</h3>
+                        <p class="mb-6 opacity-90">Connect to your Supabase database and start collecting real flora and fauna data with the full version.</p>
+                        <a href="index.html" 
+                           class="inline-block bg-white text-nature-green px-6 py-3 rounded-full font-semibold hover:bg-yellow-100 transition-colors">
+                            Launch Full App
+                        </a>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="py-20 px-4 bg-gray-100">
+        <div class="max-w-6xl mx-auto">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl md:text-5xl font-bold text-nature-green mb-6">Frontend Features</h2>
+                <p class="text-xl text-gray-600 max-w-4xl mx-auto leading-relaxed">
+                    Built with modern web technologies for a seamless user experience across all devices.
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div class="bg-white rounded-xl p-8 text-center card-hover">
+                    <div class="w-16 h-16 bg-nature-light rounded-full flex items-center justify-center mx-auto mb-6">
+                        <i class="fas fa-mobile-alt text-2xl text-white"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-4">Responsive Design</h3>
+                    <p class="text-gray-600">Perfect experience on desktop, tablet, and mobile devices with Tailwind CSS.</p>
+                </div>
+                
+                <div class="bg-white rounded-xl p-8 text-center card-hover">
+                    <div class="w-16 h-16 bg-blue-500 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <i class="fas fa-database text-2xl text-white"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-4">Supabase Integration</h3>
+                    <p class="text-gray-600">Real-time data fetching with modern JavaScript async/await patterns.</p>
+                </div>
+                
+                <div class="bg-white rounded-xl p-8 text-center card-hover">
+                    <div class="w-16 h-16 bg-purple-500 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <i class="fas fa-search text-2xl text-white"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-4">Smart Filtering</h3>
+                    <p class="text-gray-600">Filter and search through data by type, content, and location.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-nature-green text-white py-12 px-4">
+        <div class="max-w-6xl mx-auto text-center">
+            <div class="flex items-center justify-center space-x-3 mb-6">
+                <span class="text-3xl">🌿</span>
+                <span class="text-2xl font-bold">Flora & Fauna Hub</span>
+            </div>
+            <p class="text-lg mb-6 opacity-90">Demo version - Preserving biodiversity through technology</p>
+            <div class="space-y-4">
+                <div class="flex justify-center space-x-6">
+                    <a href="index.html" class="bg-white text-nature-green px-6 py-2 rounded-full font-semibold hover:bg-yellow-100 transition-colors">
+                        Try Live Version
+                    </a>
+                </div>
+                <p class="text-sm opacity-75">&copy; 2024 Flora & Fauna Data Collection. Built with ❤️ for nature conservation.</p>
+            </div>
+        </div>
+    </footer>
+
+</body>
+</html>
