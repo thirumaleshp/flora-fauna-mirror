@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🌿 Flora & Fauna Data Collection</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Supabase JavaScript Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <!-- Custom Tailwind Config -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'nature-green': '#2d5a27',
+                        'nature-light': '#4ade80',
+                        'earth-brown': '#8b5a3c'
+                    },
+                    fontFamily: {
+                        'nature': ['Inter', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .nature-gradient {
+            background: linear-gradient(135deg, #2d5a27 0%, #4ade80 100%);
+        }
+        .card-hover {
+            transition: all 0.3s ease;
+        }
+        .card-hover:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        .loading-spinner {
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #4ade80;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .fade-in {
+            animation: fadeIn 0.8s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="font-nature text-gray-800 bg-gray-50">
+    
+    <!-- Navigation Bar -->
+    <nav class="bg-white shadow-lg sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center space-x-3">
+                    <span class="text-2xl">🌿</span>
+                    <span class="text-xl font-bold text-nature-green">Flora & Fauna Hub</span>
+                </div>
+                <div class="hidden md:flex items-center space-x-6">
+                    <a href="#home" class="text-gray-700 hover:text-nature-green transition-colors">Home</a>
+                    <a href="#data" class="text-gray-700 hover:text-nature-green transition-colors">Data Collection</a>
+                    <a href="#about" class="text-gray-700 hover:text-nature-green transition-colors">About</a>
+                    <div id="connection-status" class="flex items-center space-x-2">
+                        <div class="w-2 h-2 bg-red-500 rounded-full" id="status-indicator"></div>
+                        <span id="status-text" class="text-sm text-gray-600">Connecting...</span>
+                    </div>
+                </div>
+                <div class="md:hidden">
+                    <button id="mobile-menu-btn" class="text-gray-700 hover:text-nature-green">
+                        <i class="fas fa-bars text-xl"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Mobile Menu -->
+        <div id="mobile-menu" class="hidden md:hidden bg-white border-t">
+            <div class="px-4 py-3 space-y-2">
+                <a href="#home" class="block text-gray-700 hover:text-nature-green">Home</a>
+                <a href="#data" class="block text-gray-700 hover:text-nature-green">Data Collection</a>
+                <a href="#about" class="block text-gray-700 hover:text-nature-green">About</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section id="home" class="nature-gradient text-white py-20 px-4">
+        <div class="max-w-6xl mx-auto text-center fade-in">
+            <h1 class="text-5xl md:text-7xl font-bold mb-6 leading-tight">
+                Preserve Our 
+                <span class="text-yellow-300">Biodiversity</span>
+            </h1>
+            <p class="text-xl md:text-2xl mb-8 max-w-3xl mx-auto leading-relaxed">
+                Document and preserve the world's flora and fauna through innovative multi-media data collection. 
+                Join our mission to create a comprehensive biodiversity database.
+            </p>
+            
+            <div class="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
+                <button id="explore-data-btn" class="bg-white text-nature-green px-8 py-4 rounded-full font-semibold text-lg hover:bg-yellow-100 transition-all duration-300 transform hover:scale-105 shadow-lg">
+                    <i class="fas fa-search mr-2"></i>
+                    Explore Data Collection
+                </button>
+                <button id="streamlit-app-btn" class="border-2 border-white text-white px-8 py-4 rounded-full font-semibold text-lg hover:bg-white hover:text-nature-green transition-all duration-300 transform hover:scale-105">
+                    <i class="fas fa-upload mr-2"></i>
+                    Open Streamlit App
+                </button>
+            </div>
+            
+            <!-- Statistics Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto" id="stats-container">
+                <div class="bg-white bg-opacity-20 backdrop-blur-sm rounded-xl p-6 text-center">
+                    <div class="text-3xl md:text-4xl font-bold mb-2" id="total-records">-</div>
+                    <div class="text-lg opacity-90">Total Records</div>
+                </div>
+                <div class="bg-white bg-opacity-20 backdrop-blur-sm rounded-xl p-6 text-center">
+                    <div class="text-3xl md:text-4xl font-bold mb-2" id="species-count">-</div>
+                    <div class="text-lg opacity-90">Species Documented</div>
+                </div>
+                <div class="bg-white bg-opacity-20 backdrop-blur-sm rounded-xl p-6 text-center">
+                    <div class="text-3xl md:text-4xl font-bold mb-2" id="locations-count">-</div>
+                    <div class="text-lg opacity-90">Locations Mapped</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Data Collection Section -->
+    <section id="data" class="py-20 px-4 bg-white">
+        <div class="max-w-7xl mx-auto">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl md:text-5xl font-bold text-nature-green mb-6">Latest Data Collection</h2>
+                <p class="text-xl text-gray-600 max-w-3xl mx-auto">
+                    Discover the latest flora and fauna documented by our community of researchers and nature enthusiasts.
+                </p>
+            </div>
+
+            <!-- Filter and Search -->
+            <div class="mb-8 flex flex-col md:flex-row gap-4 justify-between items-center">
+                <div class="flex flex-wrap gap-2">
+                    <button class="filter-btn active bg-nature-green text-white px-4 py-2 rounded-full text-sm font-medium" data-filter="all">
+                        All Types
+                    </button>
+                    <button class="filter-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-full text-sm font-medium hover:bg-gray-300" data-filter="image">
+                        🖼 Images
+                    </button>
+                    <button class="filter-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-full text-sm font-medium hover:bg-gray-300" data-filter="text">
+                        📝 Text
+                    </button>
+                    <button class="filter-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-full text-sm font-medium hover:bg-gray-300" data-filter="audio">
+                        🎵 Audio
+                    </button>
+                    <button class="filter-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-full text-sm font-medium hover:bg-gray-300" data-filter="video">
+                        🎥 Video
+                    </button>
+                </div>
+                
+                <div class="relative">
+                    <input type="text" id="search-input" placeholder="Search records..." 
+                           class="pl-10 pr-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-nature-green focus:border-transparent">
+                    <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                </div>
+            </div>
+
+            <!-- Loading State -->
+            <div id="loading-state" class="text-center py-12">
+                <div class="loading-spinner mx-auto mb-4"></div>
+                <p class="text-gray-600">Loading data collection...</p>
+            </div>
+
+            <!-- Error State -->
+            <div id="error-state" class="hidden text-center py-12">
+                <i class="fas fa-exclamation-triangle text-4xl text-red-500 mb-4"></i>
+                <h3 class="text-xl font-semibold text-gray-800 mb-2">Unable to Load Data</h3>
+                <p class="text-gray-600 mb-4">Please check your Supabase configuration and try again.</p>
+                <button id="retry-btn" class="bg-nature-green text-white px-6 py-2 rounded-full hover:bg-green-600 transition-colors">
+                    <i class="fas fa-redo mr-2"></i>Retry
+                </button>
+            </div>
+
+            <!-- Data Grid -->
+            <div id="data-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 hidden">
+                <!-- Data cards will be dynamically generated here -->
+            </div>
+
+            <!-- Empty State -->
+            <div id="empty-state" class="hidden text-center py-12">
+                <i class="fas fa-leaf text-4xl text-gray-400 mb-4"></i>
+                <h3 class="text-xl font-semibold text-gray-800 mb-2">No Records Found</h3>
+                <p class="text-gray-600">Start collecting data to see your records here.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- About Section -->
+    <section id="about" class="py-20 px-4 bg-gray-100">
+        <div class="max-w-6xl mx-auto">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl md:text-5xl font-bold text-nature-green mb-6">About Our Mission</h2>
+                <p class="text-xl text-gray-600 max-w-4xl mx-auto leading-relaxed">
+                    We believe in the power of technology to preserve and document our planet's incredible biodiversity. 
+                    Our platform enables researchers, conservationists, and nature lovers to collect, store, and analyze 
+                    multi-media data about flora and fauna from around the world.
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div class="bg-white rounded-xl p-8 text-center card-hover">
+                    <div class="w-16 h-16 bg-nature-light rounded-full flex items-center justify-center mx-auto mb-6">
+                        <i class="fas fa-database text-2xl text-white"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-4">Cloud Storage</h3>
+                    <p class="text-gray-600">Secure cloud-based storage powered by Supabase for reliable data preservation.</p>
+                </div>
+                
+                <div class="bg-white rounded-xl p-8 text-center card-hover">
+                    <div class="w-16 h-16 bg-blue-500 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <i class="fas fa-chart-line text-2xl text-white"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-4">Data Analytics</h3>
+                    <p class="text-gray-600">Advanced analytics and visualization tools to understand biodiversity patterns.</p>
+                </div>
+                
+                <div class="bg-white rounded-xl p-8 text-center card-hover">
+                    <div class="w-16 h-16 bg-purple-500 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <i class="fas fa-users text-2xl text-white"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-4">Community</h3>
+                    <p class="text-gray-600">Join a global community of researchers working together to preserve nature.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-nature-green text-white py-12 px-4">
+        <div class="max-w-6xl mx-auto text-center">
+            <div class="flex items-center justify-center space-x-3 mb-6">
+                <span class="text-3xl">🌿</span>
+                <span class="text-2xl font-bold">Flora & Fauna Hub</span>
+            </div>
+            <p class="text-lg mb-6 opacity-90">Preserving biodiversity through technology and collaboration</p>
+            <div class="flex justify-center space-x-6 mb-6">
+                <a href="#" class="text-white hover:text-yellow-300 transition-colors">
+                    <i class="fab fa-github text-2xl"></i>
+                </a>
+                <a href="#" class="text-white hover:text-yellow-300 transition-colors">
+                    <i class="fab fa-twitter text-2xl"></i>
+                </a>
+                <a href="#" class="text-white hover:text-yellow-300 transition-colors">
+                    <i class="fab fa-linkedin text-2xl"></i>
+                </a>
+            </div>
+            <p class="text-sm opacity-75">&copy; 2024 Flora & Fauna Data Collection. Built with ❤ for nature conservation.</p>
+        </div>
+    </footer>
+
+    <!-- Supabase Configuration Modal -->
+    <div id="config-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-xl p-8 max-w-md w-full mx-4">
+            <h3 class="text-xl font-bold mb-4">Supabase Configuration</h3>
+            <p class="text-gray-600 mb-4">Please enter your Supabase credentials to connect to the database:</p>
+            <div class="space-y-4">
+                <input type="text" id="supabase-url" placeholder="Supabase URL" 
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-nature-green">
+                <input type="text" id="supabase-key" placeholder="Supabase Anon Key" 
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-nature-green">
+                <div class="flex space-x-3">
+                    <button id="save-config" class="flex-1 bg-nature-green text-white py-2 rounded-lg hover:bg-green-600 transition-colors">
+                        Connect
+                    </button>
+                    <button id="cancel-config" class="flex-1 bg-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-400 transition-colors">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="app.js"></script>
+</body>
+</html>
