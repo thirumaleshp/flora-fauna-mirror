@@ -3,7 +3,6 @@ Flora & Fauna Chatbot - Stage 2
 Database-powered conversational AI for flora and fauna queries
 """
 
-import streamlit as st
 import pandas as pd
 from datetime import datetime
 import re
@@ -42,7 +41,7 @@ class FloraFaunaChatbot:
             return self.db_cache
             
         except Exception as e:
-            st.error(f"Error loading database: {str(e)}")
+            print(f"Error loading database: {str(e)}")  # Log error without streamlit dependency
             return None
     
     def extract_keywords(self, query: str) -> List[str]:
@@ -248,6 +247,9 @@ class FloraFaunaChatbot:
 def render_chatbot_interface():
     """Render the chatbot interface in Streamlit"""
     
+    # Import streamlit only when needed for UI rendering
+    import streamlit as st
+    
     st.header("🤖 Flora & Fauna AI Assistant")
     st.markdown("*Ask me anything about your collected flora and fauna data!*")
     
@@ -256,15 +258,24 @@ def render_chatbot_interface():
         st.error("❌ Database connection not available. Please check your Supabase setup.")
         return
     
-    # Initialize chatbot in session state if not already present
-    if 'flora_chatbot' not in st.session_state:
-        try:
+    # Safely initialize session state variables
+    try:
+        # Initialize chatbot in session state if not already present
+        if 'flora_chatbot' not in st.session_state:
             st.session_state.flora_chatbot = FloraFaunaChatbot()
-        except Exception as e:
-            st.error(f"❌ Failed to initialize chatbot: {str(e)}")
-            return
-    
-    chatbot = st.session_state.flora_chatbot
+        
+        # Initialize other session state variables safely
+        if 'chatbot_query' not in st.session_state:
+            st.session_state.chatbot_query = ""
+        if 'chatbot_response' not in st.session_state:
+            st.session_state.chatbot_response = ""
+            
+        chatbot = st.session_state.flora_chatbot
+        
+    except Exception as e:
+        st.error(f"❌ Failed to initialize chatbot: {str(e)}")
+        st.markdown("Please refresh the page and try again.")
+        return
     
     # Quick suggestions
     st.markdown("### 💡 Try asking:")
@@ -283,8 +294,11 @@ def render_chatbot_interface():
     for i, suggestion in enumerate(suggestions):
         with cols[i % 2]:
             if st.button(f"💬 {suggestion}", key=f"suggestion_{i}"):
-                st.session_state.chatbot_query = suggestion
-                st.rerun()
+                try:
+                    st.session_state.chatbot_query = suggestion
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Error setting suggestion: {str(e)}")
     
     st.markdown("---")
     
@@ -320,24 +334,33 @@ def render_chatbot_interface():
                     st.session_state.chatbot_response = "Sorry, I encountered an error while processing your query. Please try again or rephrase your question."
         
         if clear_button:
-            st.session_state.chatbot_query = ""
-            st.session_state.chatbot_response = ""
-            st.rerun()
+            try:
+                st.session_state.chatbot_query = ""
+                st.session_state.chatbot_response = ""
+                st.rerun()
+            except Exception as e:
+                st.error(f"Error clearing chat: {str(e)}")
     
     # Display response
-    if st.session_state.get('chatbot_response'):
-        st.markdown("---")
-        st.markdown("### 🤖 Assistant Response")
-        st.markdown(st.session_state.chatbot_response)
+    try:
+        if st.session_state.get('chatbot_response'):
+            st.markdown("---")
+            st.markdown("### 🤖 Assistant Response")
+            st.markdown(st.session_state.chatbot_response)
+    except Exception as e:
+        st.error(f"Error displaying response: {str(e)}")
     
     # Conversation history (collapsible)
-    if chatbot.conversation_history:
-        with st.expander(f"📜 Conversation History ({len(chatbot.conversation_history)} queries)"):
-            for i, conv in enumerate(reversed(chatbot.conversation_history[-10:]), 1):
-                st.markdown(f"**{i}. Q:** {conv['query']}")
-                st.markdown(f"**A:** Found {conv['results_found']} results")
-                st.caption(f"Asked: {conv['timestamp'][:19]}")
-                st.markdown("---")
+    try:
+        if chatbot.conversation_history:
+            with st.expander(f"📜 Conversation History ({len(chatbot.conversation_history)} queries)"):
+                for i, conv in enumerate(reversed(chatbot.conversation_history[-10:]), 1):
+                    st.markdown(f"**{i}. Q:** {conv['query']}")
+                    st.markdown(f"**A:** Found {conv['results_found']} results")
+                    st.caption(f"Asked: {conv['timestamp'][:19]}")
+                    st.markdown("---")
+    except Exception as e:
+        st.warning(f"Error displaying conversation history: {str(e)}")
 
 if __name__ == "__main__":
     render_chatbot_interface()
