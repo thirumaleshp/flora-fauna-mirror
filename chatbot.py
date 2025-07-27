@@ -40,8 +40,7 @@ class FloraFaunaChatbot:
                 
             return self.db_cache
             
-        except Exception as e:
-            print(f"Error loading database: {str(e)}")  # Log error without streamlit dependency
+        except Exception:
             return None
     
     def extract_keywords(self, query: str) -> List[str]:
@@ -70,36 +69,25 @@ class FloraFaunaChatbot:
         query_variations = []
         query_lower = query.lower()
         
-        # Comprehensive plant/tree translations
+        # Plant/tree translations
         plant_translations = {
-            # Jammi tree variations
             'jammi': ['jammi', 'జమ్మి', 'prosopis', 'cineraria', 'shami', 'khejri'],
             'జమ్మి': ['jammi', 'జమ్మి', 'prosopis', 'cineraria', 'shami', 'khejri'],
             'prosopis': ['jammi', 'జమ్మి', 'prosopis', 'cineraria'],
             'shami': ['jammi', 'జమ్మి', 'shami', 'prosopis'],
-            
-            # Neem tree variations
             'neem': ['neem', 'వేప', 'vepa', 'azadirachta', 'indica', 'margosa'],
             'వేప': ['neem', 'వేప', 'vepa', 'azadirachta', 'indica', 'margosa'],
             'vepa': ['neem', 'వేప', 'vepa', 'azadirachta', 'indica'],
             'azadirachta': ['neem', 'వేప', 'azadirachta', 'indica'],
-            
-            # Banyan tree variations
             'banyan': ['banyan', 'మర్రి', 'marri', 'ficus', 'benghalensis', 'vat', 'bargad'],
             'మర్రి': ['banyan', 'మర్రి', 'marri', 'ficus', 'benghalensis'],
             'marri': ['banyan', 'మర్రి', 'marri', 'ficus'],
-            
-            # Peepal tree variations
             'peepal': ['peepal', 'రావి', 'ravi', 'ficus', 'religiosa', 'bodhi'],
             'రావి': ['peepal', 'రావి', 'ravi', 'ficus', 'religiosa'],
             'bodhi': ['peepal', 'రావి', 'bodhi', 'ficus', 'religiosa'],
-            
-            # Mango tree variations
             'mango': ['mango', 'మామిడి', 'mamidi', 'mangifera', 'indica', 'aam'],
             'మామిడి': ['mango', 'మామిడి', 'mamidi', 'mangifera', 'indica'],
             'mamidi': ['mango', 'మామిడి', 'mamidi', 'mangifera'],
-            
-            # Coconut tree variations
             'coconut': ['coconut', 'కొబ్బరి', 'kobbari', 'cocos', 'nucifera', 'nariyal'],
             'కొబ్బరి': ['coconut', 'కొబ్బరి', 'kobbari', 'cocos', 'nucifera'],
             'kobbari': ['coconut', 'కొబ్బరి', 'kobbari', 'cocos'],
@@ -178,8 +166,6 @@ class FloraFaunaChatbot:
         
         results = []
         search_columns = ['title', 'description', 'content', 'category', 'tags', 'city', 'country']
-        
-        print(f"🔍 Searching {len(df)} records for keywords: {keywords}")
         
         # Search for each keyword across relevant columns
         for idx, row in df.iterrows():
@@ -267,12 +253,9 @@ class FloraFaunaChatbot:
                     'combined_text': combined_text[:200] + "..." if len(combined_text) > 200 else combined_text
                 }
                 results.append(result_item)
-                print(f"✅ Match found: {result_item['title']} (score: {relevance_score})")
         
         # Sort by relevance score
         results.sort(key=lambda x: x['relevance'], reverse=True)
-        
-        print(f"🎯 Search complete: {len(results)} matches found from {len(df)} total records")
         
         return {
             'found_items': len(results),
@@ -286,8 +269,6 @@ class FloraFaunaChatbot:
         """Generate natural language response with media files based on search results"""
         
         if search_results['found_items'] == 0:
-            # More helpful no-results message with debug info
-            keywords_used = search_results.get('keywords_used', [])
             return {
                 'text_response': f"""
 🤖 **Flora & Fauna Assistant**: I couldn't find any information about '{query}' in our database.
@@ -331,20 +312,17 @@ class FloraFaunaChatbot:
         if best_match is None:
             best_match = results[0]
         
-        # Collect media files from ALL relevant results, not just top 3
+        # Collect media files from relevant results
         media_files = []
         
-        # Prioritize media files that match the query
-        for result in results:  # Check all results
+        for result in results:
             result_data = result.get('data', {})
             entry_type = result_data.get('entry_type', '')
             file_url = result_data.get('file_url', '')
             title = result_data.get('title', 'Unknown')
             description = result.get('description', '')
             
-            # Check if this is a media file
             if file_url and entry_type in ['image', 'video', 'audio']:
-                # Check if the media file is relevant to the query
                 is_relevant = False
                 
                 # Check title and description for relevance
@@ -354,7 +332,7 @@ class FloraFaunaChatbot:
                         is_relevant = True
                         break
                 
-                # Also check for plant/tree specific keywords (enhanced bilingual)
+                # Check for plant/tree specific keywords
                 tree_keywords = [
                     'jammi', 'జమ్మి', 'prosopis', 'shami',
                     'neem', 'వేప', 'vepa', 'azadirachta',
@@ -368,7 +346,7 @@ class FloraFaunaChatbot:
                         is_relevant = True
                         break
                 
-                # If relevant or if it's in top 5 results, include it
+                # Include if relevant or in top 5 results
                 if is_relevant or results.index(result) < 5:
                     media_info = {
                         'type': entry_type,
@@ -382,28 +360,25 @@ class FloraFaunaChatbot:
         # Sort media files by relevance
         media_files.sort(key=lambda x: x.get('relevance', 0), reverse=True)
         
-        # Generate focused response from the best match
+        # Generate response from the best match
         content = best_match.get('content', '')
         description = best_match.get('description', '')
         
-        # Build comprehensive response from the most relevant content
         response_parts = []
         
         if description and description != 'No description':
-            # Use the full description but clean it up
             clean_description = description.strip()
             if clean_description:
                 response_parts.append(clean_description)
         
-        if content and content != 'No content':
-            # Use the full content but clean it up
+        if content and content != 'No content' and content != description:
             clean_content = content.strip()
-            if clean_content and clean_content != description:  # Avoid duplicating same content
+            if clean_content:
                 response_parts.append(clean_content)
         
-        # If we still don't have good content, try to extract from other top results
+        # If no content, try other results
         if not response_parts:
-            for result in results[:2]:  # Check top 2 results
+            for result in results[:2]:
                 alt_description = result.get('description', '')
                 alt_content = result.get('content', '')
                 
@@ -417,7 +392,6 @@ class FloraFaunaChatbot:
         # Generate final response
         if response_parts:
             text_response = '\n\n'.join(response_parts)
-            # Only truncate if extremely long (more than 1500 characters)
             if len(text_response) > 1500:
                 text_response = text_response[:1500] + "..."
         else:
@@ -433,39 +407,11 @@ class FloraFaunaChatbot:
         response_data = self.generate_response_with_media(query, search_results)
         return response_data['text_response']
     
-    def get_chatbot_suggestions(self) -> List[str]:
-        """Generate helpful query suggestions based on database content"""
-        df = self.load_database_content()
-        
-        suggestions = [
-            "Show me all images collected",
-            "చిత్రాలు చూపించు (Show images)",
-            "What audio recordings do you have?",
-            "Tell me about jammi tree",
-            "జమ్మి చెట్టు గురించి చెప్పు",
-            "Show me neem tree photos",
-            "వేప చెట్టు ఫోటోలు చూపించు",
-            "What data is from Mumbai?"
-        ]
-        
-        if df is not None and len(df) > 0:
-            # Add location-based suggestions (bilingual)
-            locations = df[df['city'].notna()]['city'].unique()[:2]
-            for location in locations:
-                suggestions.append(f"Show me data from {location}")
-            
-            # Add category-based suggestions
-            categories = df[df['category'].notna()]['category'].unique()[:2]
-            for category in categories:
-                suggestions.append(f"Tell me about {category} data")
-        
-        return suggestions[:8]  # Limit to 8 suggestions
-    
     def process_query_with_media(self, user_query: str) -> Dict:
         """Main method to process user queries and generate responses with media files"""
         if not user_query or len(user_query.strip()) < 3:
             return {
-                'text_response': "🤖 Please ask me a question about the flora and fauna data! For example: 'Show me images from Mumbai' or 'What audio recordings do you have?'",
+                'text_response': "🤖 Please ask me a question about the flora and fauna data!",
                 'media_files': []
             }
         
@@ -495,7 +441,7 @@ class FloraFaunaChatbot:
     def process_query(self, user_query: str) -> str:
         """Main method to process user queries and generate responses"""
         if not user_query or len(user_query.strip()) < 3:
-            return "🤖 Please ask me a question about the flora and fauna data! For example: 'Show me images from Mumbai' or 'What audio recordings do you have?'"
+            return "🤖 Please ask me a question about the flora and fauna data!"
         
         # Extract keywords and search database
         keywords = self.extract_keywords(user_query)
@@ -550,7 +496,7 @@ def render_media_files(media_files: list):
                     st.image(img['url'], caption=img['title'], use_column_width=True)
                     if img['description']:
                         st.caption(img['description'])
-                except Exception as e:
+                except Exception:
                     st.error(f"❌ Could not display image: {img['title']}")
                     st.markdown(f"🔗 [View directly]({img['url']})")
     
@@ -563,7 +509,7 @@ def render_media_files(media_files: list):
                 st.markdown(f"**{video['title']}**")
                 if video['description']:
                     st.caption(video['description'])
-            except Exception as e:
+            except Exception:
                 st.error(f"❌ Could not display video: {video['title']}")
                 st.markdown(f"🔗 [Download video]({video['url']})")
     
@@ -576,7 +522,7 @@ def render_media_files(media_files: list):
                 st.markdown(f"**{audio['title']}**")
                 if audio['description']:
                     st.caption(audio['description'])
-            except Exception as e:
+            except Exception:
                 st.error(f"❌ Could not play audio: {audio['title']}")
                 st.markdown(f"🔗 [Download audio]({audio['url']})")
 
@@ -621,7 +567,7 @@ def render_chatbot_interface():
         query = st.text_input(
             "Your question:",
             value=st.session_state.get('chatbot_query', ''),
-            placeholder="e.g., 'Show me all images from Mumbai' or 'What audio data do you have?'",
+            placeholder="e.g., 'Show me images from Mumbai' or 'జమ్మి చెట్టు చిత్రాలు'",
             key="chatbot_input"
         )
         
