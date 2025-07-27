@@ -245,10 +245,6 @@ class FloraFaunaChatbot:
         
         return response
 
-# Initialize chatbot instance
-if 'flora_chatbot' not in st.session_state:
-    st.session_state.flora_chatbot = FloraFaunaChatbot()
-
 def render_chatbot_interface():
     """Render the chatbot interface in Streamlit"""
     
@@ -260,11 +256,28 @@ def render_chatbot_interface():
         st.error("❌ Database connection not available. Please check your Supabase setup.")
         return
     
+    # Initialize chatbot in session state if not already present
+    if 'flora_chatbot' not in st.session_state:
+        try:
+            st.session_state.flora_chatbot = FloraFaunaChatbot()
+        except Exception as e:
+            st.error(f"❌ Failed to initialize chatbot: {str(e)}")
+            return
+    
     chatbot = st.session_state.flora_chatbot
     
     # Quick suggestions
     st.markdown("### 💡 Try asking:")
-    suggestions = chatbot.get_chatbot_suggestions()
+    try:
+        suggestions = chatbot.get_chatbot_suggestions()
+    except Exception as e:
+        st.warning(f"⚠️ Could not load suggestions: {str(e)}")
+        suggestions = [
+            "Show me all images collected",
+            "What audio recordings do you have?",
+            "Tell me about data from Mumbai",
+            "Show me recent collections"
+        ]
     
     cols = st.columns(2)
     for i, suggestion in enumerate(suggestions):
@@ -298,9 +311,13 @@ def render_chatbot_interface():
         # Process query
         if ask_button and query:
             with st.spinner("🔍 Searching database..."):
-                response = chatbot.process_query(query)
-                st.session_state.chatbot_response = response
-                st.session_state.chatbot_query = ""
+                try:
+                    response = chatbot.process_query(query)
+                    st.session_state.chatbot_response = response
+                    st.session_state.chatbot_query = ""
+                except Exception as e:
+                    st.error(f"❌ Error processing query: {str(e)}")
+                    st.session_state.chatbot_response = "Sorry, I encountered an error while processing your query. Please try again or rephrase your question."
         
         if clear_button:
             st.session_state.chatbot_query = ""
