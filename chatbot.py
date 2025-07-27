@@ -250,95 +250,8 @@ def render_chatbot_interface():
     # Import streamlit only when needed for UI rendering
     import streamlit as st
     
-    # Apply custom CSS for a modern interface
-    st.markdown("""
-    <style>
-    .stApp {
-        background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-    }
-    .main-header {
-        text-align: center;
-        padding: 3rem 0 1rem 0;
-        font-size: 2.8rem;
-        font-weight: 600;
-        color: #FFFFFF;
-        margin-bottom: 1rem;
-        text-shadow: 0 2px 4px rgba(0,0,0,0.3);
-    }
-    .sub-header {
-        text-align: center;
-        color: #E5E7EB;
-        font-size: 1.2rem;
-        margin-bottom: 3rem;
-        font-weight: 400;
-        opacity: 0.9;
-    }
-    .chat-container {
-        max-width: 900px;
-        margin: 0 auto;
-        padding: 0 1rem;
-    }
-    .input-section {
-        background: rgba(255, 255, 255, 0.1);
-        border-radius: 20px;
-        padding: 2rem;
-        margin: 2rem 0;
-        backdrop-filter: blur(15px);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-    }
-    .response-container {
-        background: rgba(255, 255, 255, 0.05);
-        border-radius: 15px;
-        padding: 1.5rem;
-        margin: 1rem 0;
-        border-left: 4px solid #60A5FA;
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-    }
-    .stTextInput > div > div > input {
-        background: rgba(255, 255, 255, 0.1);
-        color: white;
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        border-radius: 12px;
-        font-size: 1.1rem;
-        padding: 12px 16px;
-    }
-    .stTextInput > div > div > input::placeholder {
-        color: rgba(255, 255, 255, 0.6);
-    }
-    .stButton > button {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        border: none;
-        border-radius: 12px;
-        padding: 0.6rem 1.2rem;
-        font-weight: 500;
-        transition: all 0.3s ease;
-    }
-    .stButton > button[kind="primary"] {
-        background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
-        box-shadow: 0 4px 15px rgba(79, 70, 229, 0.3);
-    }
-    .stButton > button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
-    }
-    .stMarkdown h3 {
-        color: white;
-        font-weight: 600;
-    }
-    .stExpander {
-        background: rgba(255, 255, 255, 0.05);
-        border-radius: 12px;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-    }
-    </style>
-    """, unsafe_allow_html=True)
-    
-    # Center-aligned header
-    st.markdown('<div class="main-header">Hello, Thirumalesh</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-header">Ask me anything about your flora and fauna data</div>', unsafe_allow_html=True)
+    st.header("🤖 Flora & Fauna AI Assistant")
+    st.markdown("*Ask me anything about your collected flora and fauna data!*")
     
     # Check database availability
     if not SUPABASE_AVAILABLE:
@@ -364,60 +277,54 @@ def render_chatbot_interface():
         st.markdown("Please refresh the page and try again.")
         return
     
-    # Create centered container for chat interface
+    # Quick suggestions
+    st.markdown("### 💡 Try asking:")
+    try:
+        suggestions = chatbot.get_chatbot_suggestions()
+    except Exception as e:
+        st.warning(f"⚠️ Could not load suggestions: {str(e)}")
+        suggestions = [
+            "Show me all images collected",
+            "What audio recordings do you have?",
+            "Tell me about data from Mumbai",
+            "Show me recent collections"
+        ]
+    
+    cols = st.columns(2)
+    for i, suggestion in enumerate(suggestions):
+        with cols[i % 2]:
+            if st.button(f"💬 {suggestion}", key=f"suggestion_{i}"):
+                try:
+                    st.session_state.chatbot_query = suggestion
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Error setting suggestion: {str(e)}")
+    
+    st.markdown("---")
+    
+    # Chat interface
     with st.container():
-        # Quick suggestions with modern styling
-        st.markdown("### 💡 Quick suggestions")
-        try:
-            suggestions = chatbot.get_chatbot_suggestions()
-        except Exception as e:
-            st.warning(f"⚠️ Could not load suggestions: {str(e)}")
-            suggestions = [
-                "Show me all images collected",
-                "What audio recordings do you have?",
-                "Tell me about data from Mumbai",
-                "Show me recent collections"
-            ]
+        st.markdown("### 💬 Ask Your Question")
         
-        # Display suggestions in a more modern way
-        cols = st.columns(2)
-        for i, suggestion in enumerate(suggestions):
-            with cols[i % 2]:
-                if st.button(suggestion, key=f"suggestion_{i}", help="Click to use this suggestion"):
-                    try:
-                        st.session_state.chatbot_query = suggestion
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Error setting suggestion: {str(e)}")
-        
-        st.markdown("---")
-        
-        # Main chat input with modern styling
-        st.markdown('<div class="input-section">', unsafe_allow_html=True)
-        
-        # Query input with better styling
+        # Query input
         query = st.text_input(
-            "",
+            "Your question:",
             value=st.session_state.get('chatbot_query', ''),
-            placeholder="Ask me anything about your flora and fauna data...",
-            key="chatbot_input",
-            label_visibility="collapsed"
+            placeholder="e.g., 'Show me all images from Mumbai' or 'What audio data do you have?'",
+            key="chatbot_input"
         )
         
-        # Action buttons with better layout
-        col1, col2, col3, col4, col5 = st.columns([1, 1, 1, 1, 2])
+        col1, col2, col3 = st.columns([1, 1, 2])
+        
+        with col1:
+            ask_button = st.button("🚀 Ask", type="primary")
         
         with col2:
-            ask_button = st.button("🚀 Ask", type="primary", use_container_width=True)
+            clear_button = st.button("🗑️ Clear")
         
-        with col3:
-            clear_button = st.button("🗑️ Clear", use_container_width=True)
-        
-        st.markdown('</div>', unsafe_allow_html=True)
-        
-        # Process query with better UX
+        # Process query
         if ask_button and query:
-            with st.spinner("🔍 Searching your flora and fauna database..."):
+            with st.spinner("🔍 Searching database..."):
                 try:
                     response = chatbot.process_query(query)
                     st.session_state.chatbot_response = response
@@ -434,26 +341,24 @@ def render_chatbot_interface():
             except Exception as e:
                 st.error(f"Error clearing chat: {str(e)}")
     
-    # Display response with modern styling
+    # Display response
     try:
         if st.session_state.get('chatbot_response'):
-            st.markdown('<div class="response-container">', unsafe_allow_html=True)
+            st.markdown("---")
             st.markdown("### 🤖 Assistant Response")
             st.markdown(st.session_state.chatbot_response)
-            st.markdown('</div>', unsafe_allow_html=True)
     except Exception as e:
         st.error(f"Error displaying response: {str(e)}")
     
-    # Conversation history with improved design
+    # Conversation history (collapsible)
     try:
         if chatbot.conversation_history:
-            with st.expander(f"📜 Recent Conversations ({len(chatbot.conversation_history)} total)", expanded=False):
-                for i, conv in enumerate(reversed(chatbot.conversation_history[-5:]), 1):
-                    st.markdown(f"**Q{i}:** {conv['query']}")
-                    st.markdown(f"**A{i}:** Found {conv['results_found']} results")
-                    st.caption(f"🕒 {conv['timestamp'][:19]}")
-                    if i < len(chatbot.conversation_history[-5:]):
-                        st.markdown("---")
+            with st.expander(f"📜 Conversation History ({len(chatbot.conversation_history)} queries)"):
+                for i, conv in enumerate(reversed(chatbot.conversation_history[-10:]), 1):
+                    st.markdown(f"**{i}. Q:** {conv['query']}")
+                    st.markdown(f"**A:** Found {conv['results_found']} results")
+                    st.caption(f"Asked: {conv['timestamp'][:19]}")
+                    st.markdown("---")
     except Exception as e:
         st.warning(f"Error displaying conversation history: {str(e)}")
 
