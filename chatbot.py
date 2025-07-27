@@ -3,7 +3,15 @@ Flora & Fauna Chatbot - Stage 2
 Database-powered conversational AI for flora and fauna queries
 """
 
-import pandas as pd
+# Import required modules with error handling
+try:
+    import pandas as pd
+    PANDAS_AVAILABLE = True
+except ImportError:
+    PANDAS_AVAILABLE = False
+    import warnings
+    warnings.warn("pandas not available - chatbot functionality will be limited")
+
 from datetime import datetime
 import re
 from typing import List, Dict, Optional
@@ -22,10 +30,10 @@ class FloraFaunaChatbot:
         self.db_cache = None
         self.last_cache_update = None
         
-    def load_database_content(self) -> Optional[pd.DataFrame]:
+    def load_database_content(self) -> Optional[object]:
         """Load and cache database content for faster queries"""
         try:
-            if not SUPABASE_AVAILABLE:
+            if not SUPABASE_AVAILABLE or not PANDAS_AVAILABLE:
                 return None
                 
             current_time = datetime.now()
