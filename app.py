@@ -37,7 +37,8 @@ st.markdown("---")
 st.sidebar.title("🗂️ Data Collection Types")
 data_type = st.sidebar.radio(
     "Select data type to collect:",
-    ["📝 Text Data", "🎵 Audio Data", "🎥 Video Data", "🖼️ Image Data", "🤖 AI Chatbot", "📈 View Collected Data"]
+    ["🤖 AI Chatbot", "📝 Text Data", "🎵 Audio Data", "🎥 Video Data", "🖼️ Image Data", "📈 View Collected Data"],
+    index=0  # Default to AI Chatbot
 )
 
 # Show current database status
