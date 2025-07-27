@@ -21,6 +21,13 @@ except ImportError:
     CLOUD_DB_AVAILABLE = False
     st.error("❌ Cloud database modules not available")
 
+# AI Chatbot imports (Stage 2)
+try:
+    from chatbot import render_chatbot_interface
+    CHATBOT_AVAILABLE = True
+except ImportError:
+    CHATBOT_AVAILABLE = False
+
 # Main title
 st.title("🌿 Flora and Fauna Data Collection")
 st.markdown("*Document and preserve biodiversity through multi-media data collection*")
@@ -30,7 +37,7 @@ st.markdown("---")
 st.sidebar.title("🗂️ Data Collection Types")
 data_type = st.sidebar.radio(
     "Select data type to collect:",
-    ["📝 Text Data", "🎵 Audio Data", "🎥 Video Data", "🖼️ Image Data", "📈 View Collected Data"]
+    ["📝 Text Data", "🎵 Audio Data", "🎥 Video Data", "🖼️ Image Data", "🤖 AI Chatbot", "📈 View Collected Data"]
 )
 
 # Show current database status
@@ -501,7 +508,7 @@ def get_auto_location():
         # Show different messages based on detection method
         if method == 'device_location':
             st.success(location_text)
-            st.caption(f"🎯 Detected via Device GPS/WiFi • High accuracy")
+            st.caption("🎯 Detected via Device GPS/WiFi • High accuracy")
         elif method == 'ip_geolocation':
             # Check for common server locations
             server_locations = ['The Dalles', 'Ashburn', 'Council Bluffs', 'Singapore', 'Frankfurt', 'Dublin']
@@ -514,7 +521,7 @@ def get_auto_location():
                 st.caption(f"🌐 Detected via IP ({service}) • Moderate accuracy")
         else:
             st.success(location_text)
-            st.caption(f"� Manual coordinates • User provided")
+            st.caption("📍 Manual coordinates • User provided")
         
         return location_data
     else:
@@ -953,6 +960,52 @@ elif data_type == "🖼️ Image Data":
         • **Categories**: Photos, Screenshots, Diagrams
         
         Upload multiple images with descriptions and tags for better organization.
+        """)
+
+# AI Chatbot - Stage 2
+elif data_type == "🤖 AI Chatbot":
+    if CHATBOT_AVAILABLE and CLOUD_DB_AVAILABLE:
+        render_chatbot_interface()
+    elif not CLOUD_DB_AVAILABLE:
+        st.header("🤖 AI Chatbot - Database Required")
+        st.error("❌ **Database Connection Required**")
+        st.markdown("""
+        The AI Chatbot requires a working database connection to answer questions about your flora and fauna data.
+        
+        **To use the chatbot:**
+        1. ✅ Ensure Supabase is properly configured
+        2. ✅ Check your `.streamlit/secrets.toml` file
+        3. ✅ Verify database connectivity in the sidebar
+        4. 🔄 Refresh the page once connected
+        
+        **What the chatbot can do:**
+        - 🔍 Search through your collected data
+        - 📊 Provide statistics and summaries
+        - 🌍 Answer location-based queries
+        - 📝 Find specific content by keywords
+        """)
+    elif not CHATBOT_AVAILABLE:
+        st.header("🤖 AI Chatbot - Module Missing")
+        st.error("❌ **Chatbot Module Not Available**")
+        st.markdown("""
+        The chatbot module could not be loaded.
+        
+        **To fix this:**
+        1. ✅ Ensure `chatbot.py` exists in your project directory
+        2. ✅ Check for any import errors in the chatbot module
+        3. 🔄 Restart your Streamlit app
+        """)
+        
+        # Show expected chatbot features
+        st.markdown("---")
+        st.markdown("### 🚀 **Stage 2 Features (Coming Soon)**")
+        st.info("""
+        **AI Chatbot Capabilities:**
+        - 🤖 Natural language queries about your data
+        - 🔍 Smart search across all collected content
+        - 📊 Automated data analysis and insights
+        - 🌍 Location-based data exploration
+        - 📈 Statistics and trends visualization
         """)
 
 # View Collected Data

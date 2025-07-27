@@ -1,54 +1,61 @@
-# Flora & Fauna CI/CD Pipeline - Stage 1
+# Flora & Fauna CI/CD Pipeline - Stage 2
 image: alpine:latest
 
 variables:
-  PROJECT_STAGE: "stage-1"
-  PROJECT_VERSION: "v1.0.0"
+  PROJECT_STAGE: "stage-2"
+  PROJECT_VERSION: "v2.0.0"
+  PREVIOUS_STAGE: "stage-1"
+  PREVIOUS_VERSION: "v1.0.0"
 
 stages:
   - validate
   - tag
 
-# Stage 1: File Validation
+# Stage 2: File Validation + Chatbot Components
 validate_files:
   stage: validate
   script:
-    - echo "🌿 Flora & Fauna Data Collection App - Stage 1"
+    - echo "🌿 Flora & Fauna Data Collection App - Stage 2"
     - echo "✅ Validating project files..."
     - ls -la
     - echo "✅ app.py exists:" && ls app.py
     - echo "✅ requirements.txt exists:" && ls requirements.txt
     - echo "✅ Checking for supabase_db.py:" && ls supabase_db.py || echo "⚠️ supabase_db.py not found"
+    - echo "✅ Checking for chatbot.py:" && ls chatbot.py || echo "⚠️ chatbot.py not yet created"
     - echo "✅ Basic validation complete!"
     - echo "📋 Stage 1 features verified:"
     - echo "   - Multi-format data collection ✅"
     - echo "   - Location detection ✅" 
     - echo "   - Cloud storage integration ✅"
     - echo "   - Data viewing functionality ✅"
+    - echo "📋 Stage 2 features (in progress):"
+    - echo "   - AI Chatbot integration 🚧"
+    - echo "   - Database query capabilities 🚧"
+    - echo "   - Natural language responses 🚧"
 
-# Create tags for Stage 1 completion
+# Create tags for Stage 2 completion
 create_stage_tag:
   stage: tag
   script:
     - apk add --no-cache git
-    - echo "🏷️ Creating Stage 1 completion tags..."
+    - echo "🏷️ Creating Stage 2 completion tags..."
     - git config --global user.email "ci@gitlab.com"
     - git config --global user.name "GitLab CI"
     - |
       if ! git tag | grep -q "$PROJECT_STAGE"; then
-        git tag -a "$PROJECT_STAGE" -m "Stage 1: Flora & Fauna Data Collection App - Basic functionality complete"
+        git tag -a "$PROJECT_STAGE" -m "Stage 2: Flora & Fauna App with AI Chatbot - Database query capabilities"
         echo "✅ Created tag: $PROJECT_STAGE"
       else
         echo "ℹ️ Tag $PROJECT_STAGE already exists"
       fi
     - |
       if ! git tag | grep -q "$PROJECT_VERSION"; then
-        git tag -a "$PROJECT_VERSION" -m "Version 1.0.0: MVP with data collection, location detection, and cloud storage"
+        git tag -a "$PROJECT_VERSION" -m "Version 2.0.0: Added AI chatbot for database queries and natural language responses"
         echo "✅ Created tag: $PROJECT_VERSION"
       else
         echo "ℹ️ Tag $PROJECT_VERSION already exists"
       fi
-    - echo "🎯 Stage 1 milestone tagged successfully!"
+    - echo "🎯 Stage 2 milestone tagged successfully!"
   only:
     - main
     - master
