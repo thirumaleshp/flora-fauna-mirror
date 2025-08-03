@@ -1,13 +1,18 @@
-[tool.poetry]
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
 name = "flora-fauna-chatbot"
 version = "2.1.0"
 description = "Bilingual AI-powered chatbot for flora and fauna data collection and query"
-authors = ["Thirumalesh Pinninti <thirumalesh@example.com>"]
-license = "AGPL-3.0"
+authors = [
+    {name = "Thirumalesh Pinninti", email = "thirumalesh@example.com"},
+    {name = "DAYAKAR123", email = "dayakar@example.com"}
+]
+license = {text = "AGPL-3.0"}
 readme = "README.md"
-homepage = "https://code.swecha.org/DAYAKAR123/flora"
-repository = "https://code.swecha.org/DAYAKAR123/flora"
-documentation = "https://code.swecha.org/DAYAKAR123/flora"
+requires-python = ">=3.8"
 keywords = ["flora", "fauna", "chatbot", "bilingual", "biodiversity", "telugu"]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -23,30 +28,33 @@ classifiers = [
     "Natural Language :: English",
     "Natural Language :: Telugu",
 ]
+dependencies = [
+    "streamlit>=1.28.0",
+    "pandas>=2.2.0",
+    "supabase>=2.3.0",
+    "requests>=2.31.0",
+    "matplotlib>=3.8.0",
+    "plotly>=5.17.0",
+    "pillow>=10.0.0",
+    "python-dateutil>=2.8.0",
+]
 
-[tool.poetry.dependencies]
-python = "^3.8"
-streamlit = "^1.28.0"
-pandas = "^2.2.0"
-supabase = "^2.3.0"
-requests = "^2.31.0"
-matplotlib = "^3.8.0"
-plotly = "^5.17.0"
-pillow = "^10.0.0"
-python-dateutil = "^2.8.0"
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "black>=23.9.0",
+    "isort>=5.12.0",
+    "flake8>=6.1.0",
+    "mypy>=1.5.0",
+    "pre-commit>=3.4.0",
+]
 
-[tool.poetry.group.dev.dependencies]
-pytest = "^7.4.0"
-pytest-cov = "^4.1.0"
-black = "^23.9.0"
-isort = "^5.12.0"
-flake8 = "^6.1.0"
-mypy = "^1.5.0"
-pre-commit = "^3.4.0"
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+[project.urls]
+Homepage = "https://code.swecha.org/DAYAKAR123/flora"
+Repository = "https://code.swecha.org/DAYAKAR123/flora"
+Documentation = "https://code.swecha.org/DAYAKAR123/flora"
+Issues = "https://code.swecha.org/DAYAKAR123/flora/-/issues"
 
 [tool.black]
 line-length = 88
